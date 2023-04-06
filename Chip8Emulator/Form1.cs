@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Media;
 using System.Windows.Forms;
 
 namespace Chip8Emulator

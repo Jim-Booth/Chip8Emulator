@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Media;
 
 namespace Chip8Emulator
 {
@@ -394,7 +395,10 @@ namespace Chip8Emulator
             if (delayTimer > 0)
                 --delayTimer;
             if (soundTimer > 0)
+            {
                 --soundTimer;
+                SystemSounds.Beep.Play();
+            }
         }
 
         private void CallOpcode(uint opcode)
