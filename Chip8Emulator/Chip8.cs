@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Media;
 
@@ -90,99 +91,126 @@ namespace Chip8Emulator
 
         private void OP_00E0()
         {
+            var sw = Stopwatch.StartNew(); 
             for (uint i = 0; i < video.b.Length; i++)
                 video.b[i] = 0;
+            NOP(sw,109);
         }
 
         private void OP_00EE()
         {
+            var sw = Stopwatch.StartNew();
             sp--;
             pc = stack[(uint)sp];
             DisplayAvailable = true;
+            NOP(sw, 105);
         }
 
         private void OP_1nnn()
         {
+            var sw = Stopwatch.StartNew();
             uint address = (uint)(opcode & (uint)0x0FFF);
             pc = address;
+            NOP(sw, 105);
         }
 
         private void OP_2nnn()
         {
+            var sw = Stopwatch.StartNew();
             uint address = (uint)(opcode & (uint)0x0FFF);
             stack[sp] = pc;
             sp++;
             pc = address;
+            NOP(sw, 105);
         }
 
         private void OP_3xkk()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
             if (registers.b[Vx] == b)
                 pc += 2;
+            NOP(sw, 55);
         }
 
         private void OP_4xkk()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
             if (registers.b[Vx] != b)
                 pc += 2;
+            NOP(sw, 55);
         }
 
         private void OP_5xy0()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             if (registers.b[Vx] == registers.b[Vy])
                 pc += 2;
+            NOP(sw, 73);
         }
 
         private void OP_6xkk()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
             registers.b[Vx] = (byte)b;
+            NOP(sw, 27);
         }
 
         private void OP_7xkk()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
             registers.b[Vx] += (byte)b;
+            NOP(sw, 45);
         }
 
         private void OP_8xy0()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.b[Vx] = registers.b[Vy];
+            NOP(sw, 200);
         }
 
         private void OP_8xy1()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.b[Vx] |= registers.b[Vy];
+            NOP(sw, 200);
         }
 
         private void OP_8xy2()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.b[Vx] &= registers.b[Vy];
+            NOP(sw, 200);
         }
 
         private void OP_8xy3()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.b[Vx] ^= registers.b[Vy];
+            NOP(sw, 200);
         }
 
         private void OP_8xy4()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint sum = (uint)(registers.b[Vx] + registers.b[Vy]);
@@ -191,10 +219,12 @@ namespace Chip8Emulator
             else
                 registers.b[0xF] = 0;
             registers.b[Vx] = (byte)(sum & (uint)0xFF);
+            NOP(sw, 200);
         }
 
         private void OP_8xy5()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             if (registers.b[Vx] > registers.b[Vy])
@@ -202,17 +232,21 @@ namespace Chip8Emulator
             else
                 registers.b[0xF] = 0;
             registers.b[Vx] -= registers.b[Vy];
+            NOP(sw, 200);
         }
 
         private void OP_8xy6()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             registers.b[0xF] = (byte)(registers.b[Vx] & 0x1);
             registers.b[Vx] = (byte)(registers.b[Vx] >> 1);
+            NOP(sw, 200);
         }
 
         private void OP_8xy7()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.b[Vx] = (byte)(registers.b[Vy] - registers.b[Vx]);
@@ -220,44 +254,56 @@ namespace Chip8Emulator
                 registers.b[0xF] = 1;
             else
                 registers.b[0xF] = 0;
+            NOP(sw, 200);
         }
 
         private void OP_8xyE()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             registers.b[0xF] = (byte)((uint)(registers.b[Vx] & (uint)0x80) >> 7);
             registers.b[Vx] = (byte)(registers.b[Vx] << 1);
+            NOP(sw, 200);
         }
 
         private void OP_9xy0()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             if (registers.b[Vx] != registers.b[Vy])
                 pc += 2;
+            NOP(sw, 73);
         }
 
         private void OP_Annn()
         {
+            var sw = Stopwatch.StartNew();
             uint address = (opcode & (uint)0x0FFF);
             index = (ushort)address;
+            NOP(sw, 55);
         }
 
         private void OP_Bnnn()
         {
+            var sw = Stopwatch.StartNew();
             uint address = (uint)(opcode & (uint)0x0FFF);
             pc = (ushort)(registers.b[0] + address);
+            NOP(sw, 105);
         }
 
         private void OP_Cxkk()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = (uint)(opcode & (uint)0x00FF);
             registers.b[Vx] = (byte)(RandByte() & b);
+            NOP(sw, 164);
         }
 
         private void OP_Dxyn()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint height = (uint)(opcode & (uint)0x000F);
@@ -281,28 +327,35 @@ namespace Chip8Emulator
                 }
             }
             DisplayAvailable = true;
+            NOP(sw, 22734);
         }
 
         private void OP_Ex9E()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint key = registers.b[Vx];
             if (keypad.b[key] != 0)
                 pc += 2;
+            NOP(sw, 73);
         }
 
         private void OP_ExA1()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint key = registers.b[Vx];
             if (keypad.b[key] == 0)
                 pc += 2;
+            NOP(sw, 73);
         }
 
         private void OP_Fx07()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             registers.b[Vx] = delayTimer;
+            NOP(sw, 45);
         }
 
         private void OP_Fx0A()
@@ -338,31 +391,40 @@ namespace Chip8Emulator
 
         private void OP_Fx15()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             delayTimer = registers.b[Vx];
+            NOP(sw, 45);
         }
 
         private void OP_Fx18()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             soundTimer = registers.b[Vx];
+            NOP(sw, 45);
         }
 
         private void OP_Fx1E()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             index += registers.b[Vx];
+            NOP(sw, 86);
         }
 
         private void OP_Fx29()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint digit = registers.b[Vx];
             index = (ushort)(FONTSET_START_ADDRESS + (5 * digit));
+            NOP(sw, 91);
         }
 
         private void OP_Fx33()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint value = registers.b[Vx];
             memory.b[index + 2] = (byte)(value % 10);
@@ -370,20 +432,25 @@ namespace Chip8Emulator
             memory.b[index + 1] = (byte)(value % 10);
             value /= 10;
             memory.b[index] = (byte)(value % 10);
+            NOP(sw, 927);
         }
 
         private void OP_Fx55()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             for (uint i = 0; i <= Vx; i++)
                 memory.b[index + i] = registers.b[i];
+            NOP(sw, 64 + (int)(Vx * 64));
         }
 
         private void OP_Fx65()
         {
+            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             for (uint i = 0; i <= Vx; i++)
                 registers.b[i] = memory.b[index + i];
+            NOP(sw, 64 + (int)(Vx*64));
         }
 
         public void Cycle()
@@ -392,13 +459,20 @@ namespace Chip8Emulator
             DisplayAvailable = false;
             pc += 2;
             CallOpcode(opcode);
-            if (delayTimer > 0)
+            if (delayTimer > 0)             
+            {
                 --delayTimer;
+            }
             if (soundTimer > 0)
             {
                 --soundTimer;
                 SystemSounds.Beep.Play();
             }
+        }
+
+        private static void NOP(Stopwatch sw, int ticks = 1852)
+        {
+            while (sw.ElapsedTicks < ticks * 10) { }
         }
 
         private void CallOpcode(uint opcode)

@@ -11,7 +11,7 @@ namespace Chip8Emulator
         private Chip8 chip8;
         private bool running = false;
         private Bitmap screen;
-        private byte delay = 0;
+        private byte delay = 10;
 
         public Form1()
         {
@@ -119,6 +119,7 @@ namespace Chip8Emulator
             chip8 = new Chip8();
             screen = new Bitmap(64, 32, PixelFormat.Format64bppArgb);
             chip8.LoadROM(romPath);
+            chip8.DelayTimer = delay;
             running = true;
             ExecuteLoop();
         }
@@ -127,16 +128,14 @@ namespace Chip8Emulator
         {
             while (running)
             {
-                chip8.DelayTimer = delay;
                 chip8.Cycle();
                 if (chip8.DisplayAvailable)
                 {
+                    chip8.DisplayAvailable = false;
                     RenderScreen();
                     pictureBox1.BackgroundImage = screen;
                     pictureBox1.Refresh();
-                    chip8.DisplayAvailable = false;
                 }
-                this.Refresh();
                 Application.DoEvents();
             }
         }
