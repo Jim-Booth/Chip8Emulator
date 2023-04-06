@@ -1,3 +1,4 @@
+```
 This emulator is functional but not perfect. 
 
 It defaults to running the chip8 test suite linked below.
@@ -19,3 +20,4 @@ Keypad       Keyboard
 +-+-+-+-+    +-+-+-+-+
 
 Please see Form1.cs for more info how to implement and use this Chip8 Emulator.
+```
