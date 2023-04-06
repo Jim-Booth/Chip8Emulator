@@ -28,6 +28,7 @@ namespace Chip8Emulator
             set { displayAvailable = value; }
         }
 
+        private Random rnd = new Random();
         private FIXED_BYTE_ARRAY registers = new FIXED_BYTE_ARRAY { b = new byte[16] };
         private FIXED_BYTE_ARRAY memory = new FIXED_BYTE_ARRAY { b = new byte[4095] };
         private uint index;
@@ -81,12 +82,6 @@ namespace Chip8Emulator
                 for (long i = 0; i < rom.Length; i++)
                     memory.b[START_ADDRESS + i] = rom[i];
             }
-        }
-
-        public byte RandByte()
-        {
-            Random rnd = new Random((int)DateTime.Now.Ticks);
-            return (byte)rnd.Next(0, 255);
         }
 
         private void OP_00E0()
@@ -297,7 +292,7 @@ namespace Chip8Emulator
             var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = (uint)(opcode & (uint)0x00FF);
-            registers.b[Vx] = (byte)(RandByte() & b);
+            registers.b[Vx] = (byte)(rnd.Next(0, 255) & b);
             NOP(sw, 164);
         }
 
@@ -454,7 +449,7 @@ namespace Chip8Emulator
         }
 
         public void Cycle()
-        {
+        {            
             opcode = ((uint)memory.b[pc] << 8) | memory.b[pc + 1];
             DisplayAvailable = false;
             pc += 2;

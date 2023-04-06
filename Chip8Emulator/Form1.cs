@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Media;
 using System.Windows.Forms;
 
 namespace Chip8Emulator
@@ -11,7 +11,7 @@ namespace Chip8Emulator
         private Chip8 chip8;
         private bool running = false;
         private Bitmap screen;
-        private byte delay = 10;
+        private byte delay = 0;
 
         public Form1()
         {
@@ -138,6 +138,11 @@ namespace Chip8Emulator
                 }
                 Application.DoEvents();
             }
+        }
+
+        private static void NOP(Stopwatch sw, int ticks = 1852)
+        {
+            while (sw.ElapsedTicks < ticks * 10) { }
         }
 
         private void RenderScreen()
