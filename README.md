@@ -2,7 +2,7 @@
 This emulator is functional but not perfect. 
 
 It defaults to running the chip8 test suite linked below.
-https://github.com/Timendus/chip8-test-suite
+https://github.com/Skosulor/c8int/tree/master/test
 
 It passes various tests but fails others however it plays/runs most ROMS. 
 
