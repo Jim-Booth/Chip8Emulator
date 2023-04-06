@@ -4,7 +4,8 @@ This CHIP8 emulator is functional but not perfect.
 The main form defaults to running the chip8 test ROM linked below.
 https://github.com/Skosulor/c8int/tree/master/test
 
-It passes various other test ROMS but fails elements of others due to the various implemetation quirks outlined at the link below.
+It passes various other test ROMS but fails elements of others due
+to the various implemetation quirks outlined at the link below.
 https://games.gulrak.net/cadmium/chip8-opcode-table.html
 
 ...however mine plays/runs most CHP8 ROMS. 
