@@ -1,8 +1,9 @@
 This emulator is functional but not perfect. 
 
-It plays most games. 
+It defaults to running the chip8 test suite linked below.
+https://github.com/Timendus/chip8-test-suite
 
-It passes various tests but fails others.
+It passes various tests but fails others however it plays/runs most ROMS. 
 
 Keys are matched as below
 
