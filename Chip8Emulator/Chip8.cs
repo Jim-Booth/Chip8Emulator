@@ -83,7 +83,7 @@ namespace Chip8Emulator
 
         public byte RandByte()
         {
-            Random rnd = new Random();
+            Random rnd = new Random((int)DateTime.Now.Ticks);
             return (byte)rnd.Next(0, 255);
         }
 
