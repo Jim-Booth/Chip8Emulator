@@ -260,7 +260,6 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint height = (uint)(opcode & (uint)0x000F);
-
             uint xPos = registers.b[Vx] % VIDEO_WIDTH;
             uint yPos = registers.b[Vy] % VIDEO_HEIGHT;
             registers.b[0xF] = 0;
