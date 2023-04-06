@@ -196,11 +196,11 @@ namespace Chip8Emulator
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            registers.b[Vx] -= registers.b[Vy];
             if (registers.b[Vx] > registers.b[Vy])
                 registers.b[0xF] = 1;
             else
                 registers.b[0xF] = 0;
+            registers.b[Vx] -= registers.b[Vy];
         }
 
         private void OP_8xy6()
@@ -224,8 +224,8 @@ namespace Chip8Emulator
         private void OP_8xyE()
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            registers.b[Vx] = (byte)(registers.b[Vx] << 1);
             registers.b[0xF] = (byte)((uint)(registers.b[Vx] & (uint)0x80) >> 7);
+            registers.b[Vx] = (byte)(registers.b[Vx] << 1);
         }
 
         private void OP_9xy0()
