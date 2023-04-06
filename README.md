@@ -1,12 +1,16 @@
 ```
-This emulator is functional but not perfect. 
+This CHIP8 emulator is functional but not perfect. 
 
-It defaults to running the chip8 test suite linked below.
+The main form defaults to running the chip8 test ROM linked below.
 https://github.com/Skosulor/c8int/tree/master/test
 
-It passes various tests but fails others however it plays/runs most ROMS. 
+It passes various other test ROMS but fails elements of others due
+to the various implemetation quirks outlined at the link below.
+https://games.gulrak.net/cadmium/chip8-opcode-table.html
 
-Keys are matched as below
+...however mine plays/runs most CHP8 ROMS. 
+
+Keys are matched in the main form as below
 
 Keypad       Keyboard
 +-+-+-+-+    +-+-+-+-+
