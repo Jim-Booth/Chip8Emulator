@@ -1,18 +1,14 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Media;
-using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Forms;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace Chip8Emulator
 {
     internal class Chip8
     {
         private byte delayTimer = 0;
+
         public byte DelayTimer
         {
             get { return delayTimer; }
@@ -20,6 +16,7 @@ namespace Chip8Emulator
         }
 
         private FIXED_BYTE_ARRAY video;
+
         public FIXED_BYTE_ARRAY Video
         {
             get { return video; }
@@ -27,6 +24,7 @@ namespace Chip8Emulator
         }
 
         private bool displayAvailable = false;
+
         public bool DisplayAvailable
         {
             get { return displayAvailable; }
@@ -51,6 +49,7 @@ namespace Chip8Emulator
         private const uint FONTSET_START_ADDRESS = 0x50;
         private const uint VIDEO_WIDTH = 64;
         private const uint VIDEO_HEIGHT = 32;
+
         private byte[] fontset = new byte[FONTSET_SIZE]
         {
             0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
