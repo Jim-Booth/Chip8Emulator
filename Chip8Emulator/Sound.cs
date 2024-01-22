@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Media;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Chip8Emulator
 {
-    static class Sound
+    internal static class Sound
     {
         public static void PlaySound(UInt16 frequency, int msDuration, UInt16 volume = 16383)
         {

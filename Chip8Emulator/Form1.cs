@@ -18,7 +18,6 @@ namespace Chip8Emulator
             InitializeComponent();
         }
 
-
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
             running = false;

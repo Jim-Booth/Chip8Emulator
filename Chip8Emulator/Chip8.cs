@@ -400,10 +400,7 @@ namespace Chip8Emulator
             CallOpcode(opcode);
 
             if (delayTimer > 0)
-            {
                 delayTimer--;
-
-            }
 
             if (soundTimer > 0)
             {
@@ -411,7 +408,7 @@ namespace Chip8Emulator
                 soundTimer = 0;
             }
 
-            while (watch.ElapsedMilliseconds < 16) { }
+            while (watch.ElapsedMilliseconds < 16) { } // throttle cycle loop to 60Hz
             watch.Stop();
         }
 
