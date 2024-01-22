@@ -411,7 +411,7 @@ namespace Chip8Emulator
             watch.Stop();
         }
 
-        public void Beep(ushort a, int b)
+        private void Beep(ushort a, int b)
         {
             Task.Run(() =>
             {
