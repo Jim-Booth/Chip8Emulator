@@ -2,12 +2,17 @@
 using System.Diagnostics;
 using System.IO;
 using System.Media;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace Chip8Emulator
 {
     internal class Chip8
     {
-        private byte delayTimer;
+        private byte delayTimer = 0;
         public byte DelayTimer
         {
             get { return delayTimer; }
@@ -35,7 +40,9 @@ namespace Chip8Emulator
         private uint pc;
         private uint[] stack = new uint[16];
         private byte sp;
-        private byte soundTimer;
+        private byte soundTimer = 0;
+        private bool playingSound = false;
+        private uint counter = 0;
         private FIXED_BYTE_ARRAY keypad = new FIXED_BYTE_ARRAY { b = new byte[16] };
         private uint opcode;
         private long progSize;
@@ -84,128 +91,101 @@ namespace Chip8Emulator
             }
         }
 
-        private void OP_00E0()
+        private void OP_00E0() // Clears the screen
         {
-            var sw = Stopwatch.StartNew(); 
             for (uint i = 0; i < video.b.Length; i++)
                 video.b[i] = 0;
-            NOP(sw,109);
         }
 
-        private void OP_00EE()
+        private void OP_00EE() // Returns from a subroutine
         {
-            var sw = Stopwatch.StartNew();
             sp--;
             pc = stack[(uint)sp];
             DisplayAvailable = true;
-            NOP(sw, 105);
         }
 
-        private void OP_1nnn()
+        private void OP_1nnn() // Jumps to address NNN
         {
-            var sw = Stopwatch.StartNew();
             uint address = (uint)(opcode & (uint)0x0FFF);
             pc = address;
-            NOP(sw, 105);
         }
 
-        private void OP_2nnn()
+        private void OP_2nnn() // Calls subroutine at NNN
         {
-            var sw = Stopwatch.StartNew();
             uint address = (uint)(opcode & (uint)0x0FFF);
             stack[sp] = pc;
             sp++;
             pc = address;
-            NOP(sw, 105);
         }
 
-        private void OP_3xkk()
+        private void OP_3xnn() // Skips the next instruction if VX equals NN
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
             if (registers.b[Vx] == b)
                 pc += 2;
-            NOP(sw, 55);
         }
 
-        private void OP_4xkk()
+        private void OP_4xnn() // Skips the next instruction if VX does not equal NN
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
             if (registers.b[Vx] != b)
                 pc += 2;
-            NOP(sw, 55);
         }
 
-        private void OP_5xy0()
+        private void OP_5xy0() // Skips the next instruction if VX equals VY
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             if (registers.b[Vx] == registers.b[Vy])
                 pc += 2;
-            NOP(sw, 73);
         }
 
-        private void OP_6xkk()
+        private void OP_6xnn() // Sets VX to NN
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
             registers.b[Vx] = (byte)b;
-            NOP(sw, 27);
         }
 
-        private void OP_7xkk()
+        private void OP_7xnn() // Adds NN to VX (carry flag is not changed)
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
             registers.b[Vx] += (byte)b;
-            NOP(sw, 45);
         }
 
-        private void OP_8xy0()
+        private void OP_8xy0() // Sets VX to the value of VY
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.b[Vx] = registers.b[Vy];
-            NOP(sw, 200);
         }
 
-        private void OP_8xy1()
+        private void OP_8xy1() // Sets VX to VX or VY (bitwise OR operation)
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.b[Vx] |= registers.b[Vy];
-            NOP(sw, 200);
         }
 
-        private void OP_8xy2()
+        private void OP_8xy2() // Sets VX to VX and VY. (bitwise AND operation)
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.b[Vx] &= registers.b[Vy];
-            NOP(sw, 200);
         }
 
-        private void OP_8xy3()
+        private void OP_8xy3() // Sets VX to VX xor VY
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.b[Vx] ^= registers.b[Vy];
-            NOP(sw, 200);
         }
 
-        private void OP_8xy4()
+        private void OP_8xy4() // Adds VY to VX. VF is set to 1 when there's an overflow, and to 0 when there is not
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint sum = (uint)(registers.b[Vx] + registers.b[Vy]);
@@ -214,12 +194,10 @@ namespace Chip8Emulator
             else
                 registers.b[0xF] = 0;
             registers.b[Vx] = (byte)(sum & (uint)0xFF);
-            NOP(sw, 200);
         }
 
-        private void OP_8xy5()
+        private void OP_8xy5() // VY is subtracted from VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VX >= VY and 0 if not).
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             if (registers.b[Vx] > registers.b[Vy])
@@ -227,21 +205,18 @@ namespace Chip8Emulator
             else
                 registers.b[0xF] = 0;
             registers.b[Vx] -= registers.b[Vy];
-            NOP(sw, 200);
         }
 
-        private void OP_8xy6()
+        private void OP_8xy6() // Stores the least significant bit of VX in VF and then shifts VX to the right by 1
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             registers.b[0xF] = (byte)(registers.b[Vx] & 0x1);
             registers.b[Vx] = (byte)(registers.b[Vx] >> 1);
-            NOP(sw, 200);
+            //NOP(sw, 200);
         }
 
-        private void OP_8xy7()
+        private void OP_8xy7() // Sets VX to VY minus VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VY >= VX)
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.b[Vx] = (byte)(registers.b[Vy] - registers.b[Vx]);
@@ -249,56 +224,44 @@ namespace Chip8Emulator
                 registers.b[0xF] = 1;
             else
                 registers.b[0xF] = 0;
-            NOP(sw, 200);
         }
 
-        private void OP_8xyE()
+        private void OP_8xyE() // Stores the most significant bit of VX in VF and then shifts VX to the left by 1
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             registers.b[0xF] = (byte)((uint)(registers.b[Vx] & (uint)0x80) >> 7);
             registers.b[Vx] = (byte)(registers.b[Vx] << 1);
-            NOP(sw, 200);
         }
 
-        private void OP_9xy0()
+        private void OP_9xy0() // Skips the next instruction if VX does not equal VY. (Usually the next instruction is a jump to skip a code block)
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             if (registers.b[Vx] != registers.b[Vy])
                 pc += 2;
-            NOP(sw, 73);
         }
 
-        private void OP_Annn()
+        private void OP_Annn() // Sets I to the address NNN
         {
-            var sw = Stopwatch.StartNew();
             uint address = (opcode & (uint)0x0FFF);
             index = (ushort)address;
-            NOP(sw, 55);
         }
 
-        private void OP_Bnnn()
+        private void OP_Bnnn() // Jumps to the address NNN plus V0
         {
-            var sw = Stopwatch.StartNew();
             uint address = (uint)(opcode & (uint)0x0FFF);
             pc = (ushort)(registers.b[0] + address);
-            NOP(sw, 105);
         }
 
-        private void OP_Cxkk()
+        private void OP_Cxnn() // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255) and NN
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = (uint)(opcode & (uint)0x00FF);
             registers.b[Vx] = (byte)(rnd.Next(0, 255) & b);
-            NOP(sw, 164);
         }
 
-        private void OP_Dxyn()
+        private void OP_Dxyn() // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I value does not change after the execution of this instruction. As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint height = (uint)(opcode & (uint)0x000F);
@@ -322,38 +285,31 @@ namespace Chip8Emulator
                 }
             }
             DisplayAvailable = true;
-            NOP(sw, 22734);
         }
 
-        private void OP_Ex9E()
+        private void OP_Ex9E() // Skips the next instruction if the key stored in VX is pressed (usually the next instruction is a jump to skip a code block)
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint key = registers.b[Vx];
             if (keypad.b[key] != 0)
                 pc += 2;
-            NOP(sw, 73);
         }
 
-        private void OP_ExA1()
+        private void OP_ExA1() // Skips the next instruction if the key stored in VX is not pressed (usually the next instruction is a jump to skip a code block)
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint key = registers.b[Vx];
             if (keypad.b[key] == 0)
                 pc += 2;
-            NOP(sw, 73);
         }
 
-        private void OP_Fx07()
+        private void OP_Fx07() // Sets VX to the value of the delay timer
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             registers.b[Vx] = delayTimer;
-            NOP(sw, 45);
         }
 
-        private void OP_Fx0A()
+        private void OP_Fx0A() // A key press is awaited, and then stored in VX (blocking operation, all instruction halted until next key event)
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             bool hit = false;
@@ -384,42 +340,33 @@ namespace Chip8Emulator
             }
         }
 
-        private void OP_Fx15()
+        private void OP_Fx15() // Sets the delay timer to VX
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             delayTimer = registers.b[Vx];
-            NOP(sw, 45);
         }
 
-        private void OP_Fx18()
+        private void OP_Fx18() // Sets the sound timer to VX
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             soundTimer = registers.b[Vx];
-            NOP(sw, 45);
         }
 
-        private void OP_Fx1E()
+        private void OP_Fx1E() // Adds VX to I. VF is not affected
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             index += registers.b[Vx];
-            NOP(sw, 86);
         }
 
-        private void OP_Fx29()
+        private void OP_Fx29() // Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint digit = registers.b[Vx];
             index = (ushort)(FONTSET_START_ADDRESS + (5 * digit));
-            NOP(sw, 91);
         }
 
-        private void OP_Fx33()
+        private void OP_Fx33() // Stores the binary-coded decimal representation of VX, with the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint value = registers.b[Vx];
             memory.b[index + 2] = (byte)(value % 10);
@@ -427,42 +374,58 @@ namespace Chip8Emulator
             memory.b[index + 1] = (byte)(value % 10);
             value /= 10;
             memory.b[index] = (byte)(value % 10);
-            NOP(sw, 927);
         }
 
-        private void OP_Fx55()
+        private void OP_Fx55() // Stores from V0 to VX (including VX) in memory, starting at address I. The offset from I is increased by 1 for each value written, but I itself is left unmodified.
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             for (uint i = 0; i <= Vx; i++)
                 memory.b[index + i] = registers.b[i];
-            NOP(sw, 64 + (int)(Vx * 64));
         }
 
-        private void OP_Fx65()
+        private void OP_Fx65() // Fills from V0 to VX (including VX) with values from memory, starting at address I. The offset from I is increased by 1 for each value read, but I itself is left unmodified
         {
-            var sw = Stopwatch.StartNew();
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             for (uint i = 0; i <= Vx; i++)
                 registers.b[i] = memory.b[index + i];
-            NOP(sw, 64 + (int)(Vx*64));
         }
 
         public void Cycle()
-        {            
+        {
+            var watch = Stopwatch.StartNew();
+
             opcode = ((uint)memory.b[pc] << 8) | memory.b[pc + 1];
             DisplayAvailable = false;
             pc += 2;
             CallOpcode(opcode);
-            if (delayTimer > 0)             
+
+            if (delayTimer > 0)
             {
-                --delayTimer;
+                delayTimer--;
+
             }
+
             if (soundTimer > 0)
             {
-                --soundTimer;
-                SystemSounds.Beep.Play();
+                Beep(1000, soundTimer * 16);
+                soundTimer = 0;
             }
+
+            while (watch.ElapsedMilliseconds < 16) { }
+            watch.Stop();
+        }
+
+        public void Beep(ushort a, int b)
+        {
+            Task.Run(() =>
+            {
+                if (!playingSound)
+                {
+                    playingSound = true;
+                    Sound.PlaySound(a, b);
+                    playingSound = false;
+                }
+            });
         }
 
         private static void NOP(Stopwatch sw, int ticks = 1852)
@@ -477,11 +440,11 @@ namespace Chip8Emulator
             if (opcodeHex == "00EE") { OP_00EE(); return; }
             if (opcodeHex[0] == '1') { OP_1nnn(); return; }
             if (opcodeHex[0] == '2') { OP_2nnn(); return; }
-            if (opcodeHex[0] == '3') { OP_3xkk(); return; }
-            if (opcodeHex[0] == '4') { OP_4xkk(); return; }
+            if (opcodeHex[0] == '3') { OP_3xnn(); return; }
+            if (opcodeHex[0] == '4') { OP_4xnn(); return; }
             if (opcodeHex[0] == '5' && opcodeHex[3] == '0') { OP_5xy0(); return; }
-            if (opcodeHex[0] == '6') { OP_6xkk(); return; }
-            if (opcodeHex[0] == '7') { OP_7xkk(); return; }
+            if (opcodeHex[0] == '6') { OP_6xnn(); return; }
+            if (opcodeHex[0] == '7') { OP_7xnn(); return; }
             if (opcodeHex.Length == 4)
             {
                 if (opcodeHex[0] == '8' && opcodeHex[3] == '0') { OP_8xy0(); return; }
@@ -497,7 +460,7 @@ namespace Chip8Emulator
             if (opcodeHex[0] == '9' && opcodeHex[3] == '0') { OP_9xy0(); return; }
             if (opcodeHex[0] == 'A') { OP_Annn(); return; }
             if (opcodeHex[0] == 'B') { OP_Bnnn(); return; }
-            if (opcodeHex[0] == 'C') { OP_Cxkk(); return; }
+            if (opcodeHex[0] == 'C') { OP_Cxnn(); return; }
             if (opcodeHex[0] == 'D') { OP_Dxyn(); return; }
             if (opcodeHex.Length > 2)
             {
