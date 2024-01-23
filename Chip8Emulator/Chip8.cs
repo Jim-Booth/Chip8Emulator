@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace Chip8Emulator
 {
@@ -22,6 +22,12 @@ namespace Chip8Emulator
             get { return running; }
         }
 
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public class FIXED_BYTE_ARRAY
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 320)]
+            public byte[] @byte;
+        }
         private FIXED_BYTE_ARRAY video;
         public FIXED_BYTE_ARRAY Video
         {
@@ -37,15 +43,15 @@ namespace Chip8Emulator
         }
 
         private Random rnd = new Random();
-        private FIXED_BYTE_ARRAY registers = new FIXED_BYTE_ARRAY { b = new byte[16] };
-        private FIXED_BYTE_ARRAY memory = new FIXED_BYTE_ARRAY { b = new byte[4095] };
+        private FIXED_BYTE_ARRAY registers = new FIXED_BYTE_ARRAY { @byte = new byte[16] };
+        private FIXED_BYTE_ARRAY memory = new FIXED_BYTE_ARRAY { @byte = new byte[4095] };
         private uint index;
         private uint pc;
         private uint[] stack = new uint[16];
         private byte sp;
         private byte soundTimer = 0;
         private bool playingSound = false;
-        private FIXED_BYTE_ARRAY keypad = new FIXED_BYTE_ARRAY { b = new byte[16] };
+        private FIXED_BYTE_ARRAY keypad = new FIXED_BYTE_ARRAY { @byte = new byte[16] };
         private uint opcode;
         private long progSize;
         private const uint START_ADDRESS = 0x200;
@@ -77,9 +83,9 @@ namespace Chip8Emulator
         public Chip8()
         {
             pc = START_ADDRESS;
-            video = new FIXED_BYTE_ARRAY { b = new byte[VIDEO_WIDTH * VIDEO_HEIGHT] };
+            video = new FIXED_BYTE_ARRAY { @byte = new byte[VIDEO_WIDTH * VIDEO_HEIGHT] };
             for (uint i = 0; i < FONTSET_SIZE; i++)
-                memory.b[FONTSET_START_ADDRESS + i] = fontset[i];
+                memory.@byte[FONTSET_START_ADDRESS + i] = fontset[i];
         }
 
         public void LoadROM(string filePath)
@@ -90,7 +96,7 @@ namespace Chip8Emulator
                 progSize = new FileInfo(filePath).Length;
                 byte[] rom = br.ReadBytes((int)progSize);
                 for (long i = 0; i < rom.Length; i++)
-                    memory.b[START_ADDRESS + i] = rom[i];
+                    memory.@byte[START_ADDRESS + i] = rom[i];
             }
         }
 
@@ -110,11 +116,11 @@ namespace Chip8Emulator
 
         private void OP_00E0() // Clears the screen
         {
-            for (uint i = 0; i < video.b.Length; i++)
-                video.b[i] = 0;
+            for (uint i = 0; i < video.@byte.Length; i++)
+                video.@byte[i] = 0;
         }
 
-        private void OP_00EE() // Returns from a subroutine
+        private void OP_00EE() // Returns from freq subroutine
         {
             sp--;
             pc = stack[(uint)sp];
@@ -139,7 +145,7 @@ namespace Chip8Emulator
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
-            if (registers.b[Vx] == b)
+            if (registers.@byte[Vx] == b)
                 pc += 2;
         }
 
@@ -147,7 +153,7 @@ namespace Chip8Emulator
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
-            if (registers.b[Vx] != b)
+            if (registers.@byte[Vx] != b)
                 pc += 2;
         }
 
@@ -155,7 +161,7 @@ namespace Chip8Emulator
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            if (registers.b[Vx] == registers.b[Vy])
+            if (registers.@byte[Vx] == registers.@byte[Vy])
                 pc += 2;
         }
 
@@ -163,97 +169,97 @@ namespace Chip8Emulator
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
-            registers.b[Vx] = (byte)b;
+            registers.@byte[Vx] = (byte)b;
         }
 
         private void OP_7xnn() // Adds NN to VX (carry flag is not changed)
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
-            registers.b[Vx] += (byte)b;
+            registers.@byte[Vx] += (byte)b;
         }
 
         private void OP_8xy0() // Sets VX to the value of VY
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            registers.b[Vx] = registers.b[Vy];
+            registers.@byte[Vx] = registers.@byte[Vy];
         }
 
         private void OP_8xy1() // Sets VX to VX or VY (bitwise OR operation)
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            registers.b[Vx] |= registers.b[Vy];
+            registers.@byte[Vx] |= registers.@byte[Vy];
         }
 
         private void OP_8xy2() // Sets VX to VX and VY. (bitwise AND operation)
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            registers.b[Vx] &= registers.b[Vy];
+            registers.@byte[Vx] &= registers.@byte[Vy];
         }
 
         private void OP_8xy3() // Sets VX to VX xor VY
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            registers.b[Vx] ^= registers.b[Vy];
+            registers.@byte[Vx] ^= registers.@byte[Vy];
         }
 
         private void OP_8xy4() // Adds VY to VX. VF is set to 1 when there's an overflow, and to 0 when there is not
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            uint sum = (uint)(registers.b[Vx] + registers.b[Vy]);
+            uint sum = (uint)(registers.@byte[Vx] + registers.@byte[Vy]);
             if (sum > 255)
-                registers.b[0xF] = 1;
+                registers.@byte[0xF] = 1;
             else
-                registers.b[0xF] = 0;
-            registers.b[Vx] = (byte)(sum & (uint)0xFF);
+                registers.@byte[0xF] = 0;
+            registers.@byte[Vx] = (byte)(sum & (uint)0xFF);
         }
 
         private void OP_8xy5() // VY is subtracted from VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VX >= VY and 0 if not).
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            if (registers.b[Vx] > registers.b[Vy])
-                registers.b[0xF] = 1;
+            if (registers.@byte[Vx] > registers.@byte[Vy])
+                registers.@byte[0xF] = 1;
             else
-                registers.b[0xF] = 0;
-            registers.b[Vx] -= registers.b[Vy];
+                registers.@byte[0xF] = 0;
+            registers.@byte[Vx] -= registers.@byte[Vy];
         }
 
         private void OP_8xy6() // Stores the least significant bit of VX in VF and then shifts VX to the right by 1
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            registers.b[0xF] = (byte)(registers.b[Vx] & 0x1);
-            registers.b[Vx] = (byte)(registers.b[Vx] >> 1);
+            registers.@byte[0xF] = (byte)(registers.@byte[Vx] & 0x1);
+            registers.@byte[Vx] = (byte)(registers.@byte[Vx] >> 1);
         }
 
         private void OP_8xy7() // Sets VX to VY minus VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VY >= VX)
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            registers.b[Vx] = (byte)(registers.b[Vy] - registers.b[Vx]);
-            if (registers.b[Vy] > registers.b[Vx])
-                registers.b[0xF] = 1;
+            registers.@byte[Vx] = (byte)(registers.@byte[Vy] - registers.@byte[Vx]);
+            if (registers.@byte[Vy] > registers.@byte[Vx])
+                registers.@byte[0xF] = 1;
             else
-                registers.b[0xF] = 0;
+                registers.@byte[0xF] = 0;
         }
 
         private void OP_8xyE() // Stores the most significant bit of VX in VF and then shifts VX to the left by 1
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            registers.b[0xF] = (byte)((uint)(registers.b[Vx] & (uint)0x80) >> 7);
-            registers.b[Vx] = (byte)(registers.b[Vx] << 1);
+            registers.@byte[0xF] = (byte)((uint)(registers.@byte[Vx] & (uint)0x80) >> 7);
+            registers.@byte[Vx] = (byte)(registers.@byte[Vx] << 1);
         }
 
-        private void OP_9xy0() // Skips the next instruction if VX does not equal VY. (Usually the next instruction is a jump to skip a code block)
+        private void OP_9xy0() // Skips the next instruction if VX does not equal VY. (Usually the next instruction is freq jump to skip freq code block)
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            if (registers.b[Vx] != registers.b[Vy])
+            if (registers.@byte[Vx] != registers.@byte[Vy])
                 pc += 2;
         }
 
@@ -266,63 +272,63 @@ namespace Chip8Emulator
         private void OP_Bnnn() // Jumps to the address NNN plus V0
         {
             uint address = (uint)(opcode & (uint)0x0FFF);
-            pc = (ushort)(registers.b[0] + address);
+            pc = (ushort)(registers.@byte[0] + address);
         }
 
-        private void OP_Cxnn() // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255) and NN
+        private void OP_Cxnn() // Sets VX to the result of freq bitwise and operation on freq random number (Typically: 0 to 255) and NN
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = (uint)(opcode & (uint)0x00FF);
-            registers.b[Vx] = (byte)(rnd.Next(0, 255) & b);
+            registers.@byte[Vx] = (byte)(rnd.Next(0, 255) & b);
         }
 
-        private void OP_Dxyn() // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I value does not change after the execution of this instruction. As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen
+        private void OP_Dxyn() // Draws freq sprite at coordinate (VX, VY) that has freq width of 8 pixels and freq height of N pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I value does not change after the execution of this instruction. As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint height = (uint)(opcode & (uint)0x000F);
-            uint xPos = registers.b[Vx] % VIDEO_WIDTH;
-            uint yPos = registers.b[Vy] % VIDEO_HEIGHT;
-            registers.b[0xF] = 0;
+            uint xPos = registers.@byte[Vx] % VIDEO_WIDTH;
+            uint yPos = registers.@byte[Vy] % VIDEO_HEIGHT;
+            registers.@byte[0xF] = 0;
             for (uint row = 0; row < height; row++)
             {
-                uint spriteByte = memory.b[index + row];
+                uint spriteByte = memory.@byte[index + row];
                 for (uint col = 0; col < 8; col++)
                 {
                     uint spritePixel = (uint)(spriteByte & ((int)0x80 >> (int)col));
                     uint vp = ((yPos + row) * VIDEO_WIDTH + (xPos + col)) % (VIDEO_WIDTH * VIDEO_HEIGHT);
-                    uint screenPixel = (uint)video.b[vp];
+                    uint screenPixel = (uint)video.@byte[vp];
                     if (spritePixel > 0)
                     {
                         if (screenPixel == 1)
-                            registers.b[0xF] = 1;
-                        video.b[vp] = (byte)(video.b[vp] ^ 0xFFFFFFFF);
+                            registers.@byte[0xF] = 1;
+                        video.@byte[vp] = (byte)(video.@byte[vp] ^ 0xFFFFFFFF);
                     }
                 }
             }
             DisplayAvailable = true;
         }
 
-        private void OP_Ex9E() // Skips the next instruction if the key stored in VX is pressed (usually the next instruction is a jump to skip a code block)
+        private void OP_Ex9E() // Skips the next instruction if the key stored in VX is pressed (usually the next instruction is freq jump to skip freq code block)
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            uint key = registers.b[Vx];
-            if (keypad.b[key] != 0)
+            uint key = registers.@byte[Vx];
+            if (keypad.@byte[key] != 0)
                 pc += 2;
         }
 
-        private void OP_ExA1() // Skips the next instruction if the key stored in VX is not pressed (usually the next instruction is a jump to skip a code block)
+        private void OP_ExA1() // Skips the next instruction if the key stored in VX is not pressed (usually the next instruction is freq jump to skip freq code block)
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            uint key = registers.b[Vx];
-            if (keypad.b[key] == 0)
+            uint key = registers.@byte[Vx];
+            if (keypad.@byte[key] == 0)
                 pc += 2;
         }
 
         private void OP_Fx07() // Sets VX to the value of the delay timer
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            registers.b[Vx] = delayTimer;
+            registers.@byte[Vx] = delayTimer;
         }
 
         private void OP_Fx0A() // A key press is awaited, and then stored in VX (blocking operation, all instruction halted until next key event)
@@ -330,9 +336,9 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             bool hit = false;
             for (uint i = 0; i < 15; i++)
-                if (keypad.b[i] != 0)
+                if (keypad.@byte[i] != 0)
                 {
-                    registers.b[Vx] = (byte)i;
+                    registers.@byte[Vx] = (byte)i;
                     hit = true;
                     break;
                 }
@@ -344,7 +350,7 @@ namespace Chip8Emulator
         {
             set
             {
-                keypad.b[value] = 1;
+                keypad.@byte[value] = 1;
             }
         }
 
@@ -352,65 +358,65 @@ namespace Chip8Emulator
         {
             set
             {
-                keypad.b[value] = 0;
+                keypad.@byte[value] = 0;
             }
         }
 
         private void OP_Fx15() // Sets the delay timer to VX
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            delayTimer = registers.b[Vx];
+            delayTimer = registers.@byte[Vx];
         }
 
         private void OP_Fx18() // Sets the sound timer to VX
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            soundTimer = registers.b[Vx];
+            soundTimer = registers.@byte[Vx];
         }
 
         private void OP_Fx1E() // Adds VX to I. VF is not affected
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            index += registers.b[Vx];
+            index += registers.@byte[Vx];
         }
 
-        private void OP_Fx29() // Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font
+        private void OP_Fx29() // Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by freq 4x5 font
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            uint digit = registers.b[Vx];
+            uint digit = registers.@byte[Vx];
             index = (ushort)(FONTSET_START_ADDRESS + (5 * digit));
         }
 
         private void OP_Fx33() // Stores the binary-coded decimal representation of VX, with the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            uint value = registers.b[Vx];
-            memory.b[index + 2] = (byte)(value % 10);
+            uint value = registers.@byte[Vx];
+            memory.@byte[index + 2] = (byte)(value % 10);
             value /= 10;
-            memory.b[index + 1] = (byte)(value % 10);
+            memory.@byte[index + 1] = (byte)(value % 10);
             value /= 10;
-            memory.b[index] = (byte)(value % 10);
+            memory.@byte[index] = (byte)(value % 10);
         }
 
         private void OP_Fx55() // Stores from V0 to VX (including VX) in memory, starting at address I. The offset from I is increased by 1 for each value written, but I itself is left unmodified.
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             for (uint i = 0; i <= Vx; i++)
-                memory.b[index + i] = registers.b[i];
+                memory.@byte[index + i] = registers.@byte[i];
         }
 
         private void OP_Fx65() // Fills from V0 to VX (including VX) with values from memory, starting at address I. The offset from I is increased by 1 for each value read, but I itself is left unmodified
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             for (uint i = 0; i <= Vx; i++)
-                registers.b[i] = memory.b[index + i];
+                registers.@byte[i] = memory.@byte[index + i];
         }
 
         public void Cycle()
         {
             var watch = Stopwatch.StartNew();
 
-            opcode = ((uint)memory.b[pc] << 8) | memory.b[pc + 1];
+            opcode = ((uint)memory.@byte[pc] << 8) | memory.@byte[pc + 1];
             DisplayAvailable = false;
             pc += 2;
             CallOpcode(opcode);
@@ -428,14 +434,14 @@ namespace Chip8Emulator
             watch.Stop();
         }
 
-        private void Beep(ushort a, int b)
+        private void Beep(ushort freq, int duration)
         {
             Task.Run(() =>
             {
                 if (!playingSound)
                 {
                     playingSound = true;
-                    Sound.PlaySound(a, b);
+                    Sound.PlaySound(freq, duration);
                     playingSound = false;
                 }
             });

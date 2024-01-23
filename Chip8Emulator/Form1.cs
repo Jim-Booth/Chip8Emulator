@@ -117,13 +117,13 @@ namespace Chip8Emulator
             chip8.LoadROM(romPath);
             chip8.DelayTimer = delay;
             // start Chip8 in it's own thread
-            var t = new Thread(() => chip8.Start());
-            t.IsBackground = true;
-            t.Start();
+            var chip8_thread = new Thread(() => chip8.Start());
+            chip8_thread.IsBackground = true;
+            chip8_thread.Start();
             // update form display in it's own thread
-            var v = new Thread(() => DisplayLoop());
-            v.IsBackground = true;
-            v.Start();
+            var displayThread = new Thread(() => DisplayLoop());
+            displayThread.IsBackground = true;
+            displayThread.Start();
         }
 
         private void DisplayLoop()
@@ -148,7 +148,7 @@ namespace Chip8Emulator
             for (int y = 0; y < 32; y++)
                 for (int x = 0; x < 64; x++)
                 {
-                    if (chip8.Video.b[cnt] != 0)
+                    if (chip8.Video.@byte[cnt] != 0)
                         screen.SetPixel(x, y, Color.Black);
                     else
                         screen.SetPixel(x, y, Color.White);
