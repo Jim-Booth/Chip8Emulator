@@ -424,7 +424,7 @@ namespace Chip8Emulator
                 soundTimer = 0;
             }
 
-            while (watch.ElapsedMilliseconds < 16) { } // throttle cycle loop to 60Hz
+            while (watch.ElapsedMilliseconds < 16) { } // throttle cycle loop to 60Hz (1000ms / 60)
             watch.Stop();
         }
 
