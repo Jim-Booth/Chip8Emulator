@@ -144,16 +144,20 @@ namespace Chip8Emulator
 
         private void RenderScreen()
         {
-            int cnt = 0;
-            for (int y = 0; y < 32; y++)
-                for (int x = 0; x < 64; x++)
-                {
-                    if (chip8.Video.@byte[cnt] != 0)
-                        screen.SetPixel(x, y, Color.Black);
-                    else
-                        screen.SetPixel(x, y, Color.White);
-                    cnt++;
-                }
+            try
+            {
+                int cnt = 0;
+                for (int y = 0; y < 32; y++)
+                    for (int x = 0; x < 64; x++)
+                    {
+                        if (chip8.Video.@byte[cnt] != 0)
+                            screen.SetPixel(x, y, Color.Black);
+                        else
+                            screen.SetPixel(x, y, Color.White);
+                        cnt++;
+                    }
+            }
+            catch { }
         }
     }
 }

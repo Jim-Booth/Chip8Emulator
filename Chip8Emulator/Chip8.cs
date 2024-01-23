@@ -422,15 +422,21 @@ namespace Chip8Emulator
             CallOpcode(opcode);
 
             if (delayTimer > 0)
+            {
+                while (watch.ElapsedMilliseconds < 16) { }
                 delayTimer--;
+                return;
+            }
 
             if (soundTimer > 0)
             {
                 Beep(1000, soundTimer * 16);
+                while (watch.ElapsedMilliseconds < 16) { }
                 soundTimer = 0;
+                return;
             }
 
-            while (watch.ElapsedMilliseconds < 16) { } // throttle cycle loop to 60Hz (1000ms / 60)
+            while (watch.ElapsedMilliseconds < 3) { } // throttle cycle loop to 60Hz (1000ms / 60)
             watch.Stop();
         }
 
