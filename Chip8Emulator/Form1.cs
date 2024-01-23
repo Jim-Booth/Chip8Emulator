@@ -2,14 +2,18 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using System.Threading;
 using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrayNotify;
 
 namespace Chip8Emulator
 {
     public partial class Form1 : Form
     {
-        private Chip8 chip8;
-        private bool running = false;
+        private Chip8 chip8 = null;
         private Bitmap screen;
         private byte delay = 0;
 
@@ -20,7 +24,7 @@ namespace Chip8Emulator
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            running = false;
+            chip8.Stop();
         }
 
         private void keypad_KeyDown(object sender, KeyEventArgs e)
@@ -82,13 +86,7 @@ namespace Chip8Emulator
 
         private void button2_Click(object sender, EventArgs e)
         {
-            button2.Text = "Resume";
-            running = !running;
-            if (running)
-            {
-                button2.Text = "Pause";
-                ExecuteLoop();
-            }
+            chip8.Stop();
         }
 
         private void button3_Click(object sender, EventArgs e)
@@ -108,8 +106,7 @@ namespace Chip8Emulator
 
         private void Reset()
         {
-            running = false;
-            chip8 = null;
+            if (chip8 != null) chip8.Stop();
             pictureBox1.BackgroundImage = null;
         }
 
@@ -119,29 +116,28 @@ namespace Chip8Emulator
             screen = new Bitmap(64, 32, PixelFormat.Format64bppArgb);
             chip8.LoadROM(romPath);
             chip8.DelayTimer = delay;
-            running = true;
-            ExecuteLoop();
+            var t = new Thread(() => chip8.Start());
+            t.IsBackground = true;
+            t.Start();
+            var v = new Thread(() => DisplayLoop());
+            v.IsBackground = true;
+            v.Start();
         }
 
-        private void ExecuteLoop()
+        private void DisplayLoop()
         {
-            while (running)
+            Thread.Sleep(100);
+            while (chip8.Running)
             {
-                chip8.Cycle();
                 if (chip8.DisplayAvailable)
                 {
                     chip8.DisplayAvailable = false;
                     RenderScreen();
-                    pictureBox1.BackgroundImage = screen;
-                    pictureBox1.Refresh();
+                    pictureBox1.Invoke((MethodInvoker)(() => pictureBox1.BackgroundImage = screen));
+                    pictureBox1.Invoke((MethodInvoker)(() => pictureBox1.Refresh()));
                 }
                 Application.DoEvents();
             }
-        }
-
-        private static void NOP(Stopwatch sw, int ticks = 1852)
-        {
-            while (sw.ElapsedTicks < ticks * 10) { }
         }
 
         private void RenderScreen()

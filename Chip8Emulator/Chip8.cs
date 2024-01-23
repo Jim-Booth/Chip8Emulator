@@ -2,21 +2,27 @@
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace Chip8Emulator
 {
     internal class Chip8
     {
-        private byte delayTimer = 0;
 
+        private byte delayTimer = 0;
         public byte DelayTimer
         {
             get { return delayTimer; }
             set { delayTimer = value; }
         }
 
-        private FIXED_BYTE_ARRAY video;
+        private bool running = false;
+        public bool Running
+        {
+            get { return running; }
+        }
 
+        private FIXED_BYTE_ARRAY video;
         public FIXED_BYTE_ARRAY Video
         {
             get { return video; }
@@ -24,7 +30,6 @@ namespace Chip8Emulator
         }
 
         private bool displayAvailable = false;
-
         public bool DisplayAvailable
         {
             get { return displayAvailable; }
@@ -40,7 +45,6 @@ namespace Chip8Emulator
         private byte sp;
         private byte soundTimer = 0;
         private bool playingSound = false;
-        private uint counter = 0;
         private FIXED_BYTE_ARRAY keypad = new FIXED_BYTE_ARRAY { b = new byte[16] };
         private uint opcode;
         private long progSize;
@@ -88,6 +92,20 @@ namespace Chip8Emulator
                 for (long i = 0; i < rom.Length; i++)
                     memory.b[START_ADDRESS + i] = rom[i];
             }
+        }
+
+        public void Start()
+        {
+            running = true;
+            if (progSize > 0)
+                while (running)
+                    Cycle();
+            running = false;
+        }
+
+        public void Stop()
+        {
+            running = false; 
         }
 
         private void OP_00E0() // Clears the screen
@@ -211,7 +229,6 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             registers.b[0xF] = (byte)(registers.b[Vx] & 0x1);
             registers.b[Vx] = (byte)(registers.b[Vx] >> 1);
-            //NOP(sw, 200);
         }
 
         private void OP_8xy7() // Sets VX to VY minus VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VY >= VX)
