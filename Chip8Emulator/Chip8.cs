@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -21,6 +22,15 @@ namespace Chip8Emulator
         {
             get { return running; }
         }
+
+        private bool debugMode = false;
+        public bool DebugMode
+        {
+            get { return debugMode; }
+            set { debugMode = value; }
+        }
+
+        bool step = true;
 
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public class FIXED_BYTE_ARRAY
@@ -80,6 +90,32 @@ namespace Chip8Emulator
 	        0xF0, 0x80, 0xF0, 0x80, 0x80  // F
         };
 
+        public List<string> DebugStackInfo()
+        {
+            List<string> stak = new List<string>();
+            stak.Add("STACK");
+            for (uint i = 0; i < 15; i++)
+                stak.Add(stack[i].ToString("X"));
+            return stak;
+        }
+
+        public List<string> DebugMainInfo()
+        {
+            List<string> info = new List<string>();
+
+            string reg = "REGISTERS\r\n01 02 02 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\r\n";
+            for (uint i = 0; i < 15; i++)
+            {
+                if(registers.@byte[i] < 16) reg += "0";
+                reg += registers.@byte[i].ToString("X");
+                if (i < 14) reg += " ";
+            }
+            info.Add(reg);
+            info.Add("PC = " + pc);
+            info.Add("OPCODE = " + opcode.ToString("X4"));
+            return info;
+        }
+
         public Chip8()
         {
             pc = START_ADDRESS;
@@ -105,25 +141,48 @@ namespace Chip8Emulator
             running = true;
             if (progSize > 0)
                 while (running)
-                    Cycle();
+                {
+                    if (!debugMode)
+                        Cycle();
+                    else
+                    {
+                        uint p = pc;
+                        while (!step) { }
+                        while (p == pc)
+                        {
+                            Cycle(); Cycle();
+                        }
+                        step = false;
+                    }
+                }
             running = false;
+        }
+
+        public void Pause()
+        {
+            debugMode = !debugMode;
+            if (!debugMode) Step();
+        }
+
+        public void Step()
+        {
+            step = true;
         }
 
         public void Stop()
         {
-            running = false; 
+            running = false;
         }
 
         private void OP_00E0() // Clears the screen
         {
-            for (uint i = 0; i < video.@byte.Length; i++)
-                video.@byte[i] = 0;
+            video = new FIXED_BYTE_ARRAY { @byte = new byte[VIDEO_WIDTH * VIDEO_HEIGHT] };
         }
 
         private void OP_00EE() // Returns from freq subroutine
         {
             sp--;
-            pc = stack[(uint)sp];
+            pc = stack[sp];
             DisplayAvailable = true;
         }
 
@@ -145,7 +204,7 @@ namespace Chip8Emulator
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
-            if (registers.@byte[Vx] == b)
+            if ((uint)registers.@byte[Vx] == b)
                 pc += 2;
         }
 
@@ -191,6 +250,7 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.@byte[Vx] |= registers.@byte[Vy];
+            registers.@byte[15] = 0;
         }
 
         private void OP_8xy2() // Sets VX to VX and VY. (bitwise AND operation)
@@ -198,6 +258,7 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.@byte[Vx] &= registers.@byte[Vy];
+            registers.@byte[15] = 0;
         }
 
         private void OP_8xy3() // Sets VX to VX xor VY
@@ -205,54 +266,63 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.@byte[Vx] ^= registers.@byte[Vy];
+            registers.@byte[15] = 0;
         }
 
         private void OP_8xy4() // Adds VY to VX. VF is set to 1 when there's an overflow, and to 0 when there is not
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            uint sum = (uint)(registers.@byte[Vx] + registers.@byte[Vy]);
+            int sum = (registers.@byte[Vx] + registers.@byte[Vy]);
+            registers.@byte[Vx] = (byte)((byte)sum & 0xFF);
             if (sum > 255)
-                registers.@byte[0xF] = 1;
+                registers.@byte[15] = 1;
             else
-                registers.@byte[0xF] = 0;
-            registers.@byte[Vx] = (byte)(sum & (uint)0xFF);
+                registers.@byte[15] = 0;
         }
 
         private void OP_8xy5() // VY is subtracted from VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VX >= VY and 0 if not).
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            if (registers.@byte[Vx] > registers.@byte[Vy])
-                registers.@byte[0xF] = 1;
+
+            int sum = (registers.@byte[Vx] - registers.@byte[Vy]);
+            registers.@byte[Vx] = (byte)sum;
+
+            if (sum < 0)
+                registers.@byte[15] = 0;
             else
-                registers.@byte[0xF] = 0;
-            registers.@byte[Vx] -= registers.@byte[Vy];
+                registers.@byte[15] = 1;
+
         }
 
         private void OP_8xy6() // Stores the least significant bit of VX in VF and then shifts VX to the right by 1
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            registers.@byte[0xF] = (byte)(registers.@byte[Vx] & 0x1);
-            registers.@byte[Vx] = (byte)(registers.@byte[Vx] >> 1);
+            uint vx = (uint)registers.@byte[Vx];
+            registers.@byte[Vx] >>= 0x1;
+            registers.@byte[15] = (byte)((vx & 0x1) != 0 ? 1 : 0);
         }
 
         private void OP_8xy7() // Sets VX to VY minus VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VY >= VX)
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            registers.@byte[Vx] = (byte)(registers.@byte[Vy] - registers.@byte[Vx]);
-            if (registers.@byte[Vy] > registers.@byte[Vx])
-                registers.@byte[0xF] = 1;
+            
+            int sum = registers.@byte[Vy] - registers.@byte[Vx];
+            registers.@byte[Vx] = (byte)sum;
+            if (sum < 0)
+                registers.@byte[15] = 0;
             else
-                registers.@byte[0xF] = 0;
+                registers.@byte[15] = 1;
         }
 
         private void OP_8xyE() // Stores the most significant bit of VX in VF and then shifts VX to the left by 1
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            registers.@byte[0xF] = (byte)((uint)(registers.@byte[Vx] & (uint)0x80) >> 7);
-            registers.@byte[Vx] = (byte)(registers.@byte[Vx] << 1);
+            uint vx = (uint)registers.@byte[Vx];
+            registers.@byte[Vx] <<= 0x1;
+            registers.@byte[15] = (byte)(((vx & 0x80) == 0x80) ? 1 : 0);
         }
 
         private void OP_9xy0() // Skips the next instruction if VX does not equal VY. (Usually the next instruction is freq jump to skip freq code block)
@@ -278,7 +348,7 @@ namespace Chip8Emulator
         private void OP_Cxnn() // Sets VX to the result of freq bitwise and operation on freq random number (Typically: 0 to 255) and NN
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            uint b = (uint)(opcode & (uint)0x00FF);
+            uint b = (opcode & (uint)0x00FF);
             registers.@byte[Vx] = (byte)(rnd.Next(0, 255) & b);
         }
 
@@ -436,8 +506,14 @@ namespace Chip8Emulator
                 return;
             }
 
-            while (watch.ElapsedMilliseconds < 3) { } // throttle cycle loop to 60Hz (1000ms / 60)
+            while (watch.ElapsedMilliseconds < 2) { } 
             watch.Stop();
+            if (debugMode)
+            {
+                step = false;
+                while (!step) { }
+            }
+
         }
 
         private void Beep(ushort freq, int duration)
@@ -463,6 +539,7 @@ namespace Chip8Emulator
             string opcodeHex = opcode.ToString("X4");
             if (opcodeHex == "00E0") { OP_00E0(); return; }
             if (opcodeHex == "00EE") { OP_00EE(); return; }
+            if (opcodeHex[0] == '0') { return; }
             if (opcodeHex[0] == '1') { OP_1nnn(); return; }
             if (opcodeHex[0] == '2') { OP_2nnn(); return; }
             if (opcodeHex[0] == '3') { OP_3xnn(); return; }

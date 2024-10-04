@@ -2,11 +2,13 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrayNotify;
 
 namespace Chip8Emulator
@@ -20,11 +22,12 @@ namespace Chip8Emulator
         public Form1()
         {
             InitializeComponent();
+            SearchForCH8Roms();
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            chip8.Stop();
+            chip8.Pause();
         }
 
         private void keypad_KeyDown(object sender, KeyEventArgs e)
@@ -82,11 +85,24 @@ namespace Chip8Emulator
         {
             Reset();
             Execute(@"Test.ROM");
+            if (!String.IsNullOrEmpty(comboBox1.Text))
+                comboBox1.Text = String.Empty;
+            button2.Text = "Pause";
         }
 
         private void button2_Click(object sender, EventArgs e)
         {
-            chip8.Stop();
+            chip8.Pause();
+            if (!checkBox1.Checked)
+            {
+                textBox1.Text = "";
+                textBox2.Text = "";
+            }
+            if (chip8.DebugMode)
+                button2.Text = "Run";
+            else
+                button2.Text = "Pause";
+
         }
 
         private void button3_Click(object sender, EventArgs e)
@@ -108,37 +124,48 @@ namespace Chip8Emulator
         {
             if (chip8 != null) chip8.Stop();
             pictureBox1.BackgroundImage = null;
+            comboBox1.Enabled = true;
         }
 
         private void Execute(string romPath)
         {
             chip8 = new Chip8();
+            chip8.DebugMode = checkBox2.Checked;
             screen = new Bitmap(64, 32, PixelFormat.Format64bppArgb);
             chip8.LoadROM(romPath);
             chip8.DelayTimer = delay;
-            // start Chip8 in it's own thread
-            var chip8_thread = new Thread(() => chip8.Start());
-            chip8_thread.IsBackground = true;
-            chip8_thread.Start();
             // update form display in it's own thread
             var displayThread = new Thread(() => DisplayLoop());
             displayThread.IsBackground = true;
             displayThread.Start();
+            // start Chip8 in it's own thread
+            var chip8_thread = new Thread(() => chip8.Start());
+            chip8_thread.IsBackground = true;
+            chip8_thread.Start();
         }
 
         private void DisplayLoop()
         {
-            Thread.Sleep(100); // short delay to allow Chip8 thread to start
+            while (!chip8.Running) { }
             while (chip8.Running)
             {
                 if (chip8.DisplayAvailable)
                 {
-                    chip8.DisplayAvailable = false;
-                    RenderScreen();
-                    pictureBox1.Invoke((MethodInvoker)(() => pictureBox1.BackgroundImage = screen));
-                    pictureBox1.Invoke((MethodInvoker)(() => pictureBox1.Refresh()));
+                    try
+                    {
+                        chip8.DisplayAvailable = false;
+                        RenderScreen();
+                        pictureBox1.Invoke((MethodInvoker)(() => pictureBox1.BackgroundImage = screen));
+                        pictureBox1.Invoke((MethodInvoker)(() => pictureBox1.Refresh()));
+                        if (checkBox1.Checked)
+                        {
+                            textBox1.Invoke((MethodInvoker)(() => textBox1.Text = String.Join(Environment.NewLine, chip8.DebugMainInfo())));
+                            textBox2.Invoke((MethodInvoker)(() => textBox2.Text = String.Join(Environment.NewLine, chip8.DebugStackInfo())));
+                        }
+                    }
+                    catch { }
                 }
-                Application.DoEvents();
+               // Application.DoEvents();
             }
         }
 
@@ -157,7 +184,49 @@ namespace Chip8Emulator
                         cnt++;
                     }
             }
-            catch { }
+            catch {
+                int cnt = 0;
+                for (int y = 0; y < 32; y++)
+                    for (int x = 0; x < 64; x++)
+                    {
+                        if (chip8.Video.@byte[cnt] != 0)
+                            screen.SetPixel(x, y, Color.Black);
+                        else
+                            screen.SetPixel(x, y, Color.White);
+                        cnt++;
+                    }
+            }
+        }
+
+        private void pictureBox1_Paint(object sender, PaintEventArgs pe)
+        {
+            pe.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+            pe.Graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+            pe.Graphics.DrawImage(screen,0,0,pictureBox1.Width,pictureBox1.Height);
+        }
+
+        private void SearchForCH8Roms()
+        {
+            var myFiles = Directory.EnumerateFiles(Application.StartupPath, "*.ch8");
+            foreach (var file in myFiles)
+            {
+                comboBox1.Items.Add(Path.GetFileName(file));
+            }
+        }
+
+        private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            Reset();
+            if (!String.IsNullOrEmpty(comboBox1.SelectedItem.ToString()))
+                Execute(comboBox1.Text);
+            comboBox1.Enabled = false;
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {
+            chip8.Step();
+            textBox1.Invoke((MethodInvoker)(() => textBox1.Text = String.Join(Environment.NewLine, chip8.DebugMainInfo())));
+            textBox2.Invoke((MethodInvoker)(() => textBox2.Text = String.Join(Environment.NewLine, chip8.DebugStackInfo())));
         }
     }
 }
