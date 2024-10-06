@@ -139,14 +139,20 @@ namespace Chip8Emulator
         public void Start()
         {
             running = true;
+            int beat = 0;
             if (progSize > 0)
+            {
                 while (running)
                 {
+                    uint p = pc;
+                    beat ++;
                     if (!debugMode)
+                    {
                         Cycle();
+                    }
                     else
                     {
-                        uint p = pc;
+
                         while (!step) { }
                         while (p == pc)
                         {
@@ -154,7 +160,15 @@ namespace Chip8Emulator
                         }
                         step = false;
                     }
+                    string op = opcode.ToString("X4");
+                    bool awaitKey = (op[0] == 'F' && op[2] == '0' && op[3] == 'A');
+                    if (p != pc || awaitKey) 
+                        beat = 0;
+                    if (beat == 100)
+                        running = false;
                 }
+                running = false;
+            }
             running = false;
         }
 
