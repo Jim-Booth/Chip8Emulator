@@ -16,12 +16,39 @@ namespace Chip8Emulator
         {
             get { return running; }
         }
-
         private bool debugMode = false;
         public bool DebugMode
         {
             get { return debugMode; }
             set { debugMode = value; }
+        }
+
+        private bool shiftQuirk = true;
+        public bool ShiftQuirk
+        {
+            get { return shiftQuirk; }
+            set { shiftQuirk = value; }
+        }
+
+        private bool jumpQuirk = true;
+        public bool JumpQuirk
+        {
+            get { return jumpQuirk; }
+            set { jumpQuirk = value; }
+        }
+
+        private bool logicQuirk = true;
+        public bool LogicQuirk
+        {
+            get { return logicQuirk; }
+            set { logicQuirk = value; }
+        }
+
+        private bool loadStoreQuirk = true;
+        public bool LoadStoreQuirk
+        {
+            get { return shiftQuirk; }
+            set { shiftQuirk = value; }
         }
 
         bool step = true;
@@ -302,7 +329,8 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.@byte[Vx] |= registers.@byte[Vy];
-            registers.@byte[15] = 0;
+            if(logicQuirk)
+                registers.@byte[15] = 0;
         }
 
         private void OP_8xy2(uint opcode) // Sets VX to VX and VY. (bitwise AND operation)
@@ -310,7 +338,8 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.@byte[Vx] &= registers.@byte[Vy];
-            registers.@byte[15] = 0;
+            if (logicQuirk)
+                registers.@byte[15] = 0;
         }
 
         private void OP_8xy3(uint opcode) // Sets VX to VX xor VY
@@ -318,7 +347,8 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.@byte[Vx] ^= registers.@byte[Vy];
-            registers.@byte[15] = 0;
+            if (logicQuirk)
+                registers.@byte[15] = 0;
         }
 
         private void OP_8xy4(uint opcode) // Adds VY to VX. VF is set to 1 when there's an overflow, and to 0 when there is not
@@ -349,8 +379,11 @@ namespace Chip8Emulator
         private void OP_8xy6(uint opcode) // Stores the least significant bit of VX in VF and then shifts VX to the right by 1
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
+            uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint vx = (uint)registers.@byte[Vx];
             int sum = (vx & 0x1) != 0 ? 1 : 0;
+            if (!shiftQuirk)
+                registers.@byte[Vx] = registers.@byte[Vy];
             registers.@byte[Vx] >>= 0x1;
             registers.@byte[15] = (byte)sum;
         }
@@ -370,8 +403,11 @@ namespace Chip8Emulator
         private void OP_8xyE(uint opcode) // Stores the most significant bit of VX in VF and then shifts VX to the left by 1
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
+            uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint vx = (uint)registers.@byte[Vx];
             int sum = (vx & 0x80) == 0x80 ? 1 : 0;
+            if (!shiftQuirk)
+                registers.@byte[Vx] = registers.@byte[Vy];
             registers.@byte[Vx] <<= 0x1;
             registers.@byte[15] = (byte)sum;
         }
@@ -392,8 +428,12 @@ namespace Chip8Emulator
 
         private void OP_Bnnn(uint opcode) // Jumps to the address NNN plus V0
         {
+            uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint address = (uint)(opcode & (uint)0x0FFF);
-            PC = (ushort)(registers.@byte[0] + address);
+            if(!jumpQuirk)
+                PC = (ushort)(registers.@byte[0] + address);
+            else
+                PC = (ushort)(registers.@byte[0] + registers.@byte[Vx]);
         }
 
         private void OP_Cxnn(uint opcode) // Sets VX to the result of freq bitwise and operation on freq random number (Typically: 0 to 255) and NN
@@ -524,6 +564,8 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             for (uint i = 0; i <= Vx; i++)
                 memory.@byte[I + i] = registers.@byte[i];
+            if (!loadStoreQuirk)
+                I = I + Vx + 1;
         }
 
         private void OP_Fx65(uint opcode) // Fills from V0 to VX (including VX) with values from memory, starting at address I. The offset from I is increased by 1 for each value read, but I itself is left unmodified
