@@ -1,34 +1,21 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TrayNotify;
 
 namespace Chip8Emulator
 {
     public partial class Form1 : Form
     {
         private Chip8 chip8 = null;
-        private byte delay = 0;
-
-        private IntPtr displayHandle;
-        public IntPtr DisplayHandle()
-        {
-            return displayHandle;
-        }
 
         public Form1()
         {
-            InitializeComponent();            
+            InitializeComponent();
             SearchForCH8Roms();
         }
 
@@ -123,7 +110,6 @@ namespace Chip8Emulator
 
         private void Form1_Shown(object sender, EventArgs e)
         {
-            displayHandle = textBox3.Handle;
             Reset();
             Execute(@"Test.ROM");
         }
@@ -139,7 +125,6 @@ namespace Chip8Emulator
             chip8 = new Chip8();
             chip8.DebugMode = checkBox2.Checked;
             chip8.LoadROM(romPath);
-            chip8.DelayTimer = delay;
             // update form display in it's own thread
             var displayThread = new Thread(() => DisplayLoop());
             displayThread.IsBackground = true;
@@ -155,55 +140,54 @@ namespace Chip8Emulator
             while (!chip8.Running) { }
             while (chip8.Running)
             {
-                if (chip8.DisplayAvailable)
+                try
                 {
-                    try
+                    RenderScreen();
+                    if (checkBox1.Checked)
                     {
-                        chip8.DisplayAvailable = false;
-                        RenderScreen();
-                        if (checkBox1.Checked)
-                        {
-                            textBox1.Invoke((MethodInvoker)(() => textBox1.Text = String.Join(Environment.NewLine, chip8.DebugMainInfo())));
-                            textBox2.Invoke((MethodInvoker)(() => textBox2.Text = String.Join(Environment.NewLine, chip8.DebugStackInfo())));
-                        }
+                        textBox1.Invoke((MethodInvoker)(() => textBox1.Text = String.Join(Environment.NewLine, chip8.DebugMainInfo())));
+                        textBox2.Invoke((MethodInvoker)(() => textBox2.Text = String.Join(Environment.NewLine, chip8.DebugStackInfo())));
                     }
-                    catch { }
                 }
-               // Application.DoEvents();
+                catch { }
             }
             comboBox1.Invoke((MethodInvoker)(() => comboBox1.Enabled = true));
         }
 
-        [DllImport("user32.dll")]
-        private static extern int SendMessage(IntPtr hwnd, int wMsg, int wParam, int lParam);
-
-        private const int WM_SETREDRAW = 0xB;
-
-
         private void RenderScreen()
         {
-            textBox3.Invoke((MethodInvoker)(() => textBox3.Text=""));
-            var handle = DisplayHandle();
-            SendMessage((IntPtr)handle, WM_SETREDRAW, 0, 0);
-            string pixel = "█";
-            List<string> disp = new List<string>();
-            string row = "";
+            Bitmap initalBitmap = new Bitmap(64, 32);
             int cnt = 0;
             for (int y = 0; y < 32; y++)
             {
+                string row = String.Empty;
                 for (int x = 0; x < 64; x++)
                 {
                     if (chip8.Video.@byte[cnt] != 0)
-                        row += pixel;
+                        initalBitmap.SetPixel(x, y, Color.LimeGreen);
                     else
-                        row += " ";
+                        initalBitmap.SetPixel(x, y, Color.Black);
                     cnt++;
                 }
-                disp.Add(row);
-                row = "";
             }
-            textBox3.Invoke((MethodInvoker)(() => textBox3.Text = String.Join(Environment.NewLine, disp)));
-            SendMessage((IntPtr)handle, WM_SETREDRAW, 1, 0);
+            Rectangle outputContainerRect = new Rectangle(0, 0, 640, 320);
+            Bitmap outputBitmap = new Bitmap(640, 320);
+            outputBitmap.SetResolution(initalBitmap.HorizontalResolution, initalBitmap.VerticalResolution);
+            using (Graphics graphics = Graphics.FromImage(outputBitmap))
+            {
+                graphics.CompositingMode = CompositingMode.SourceCopy;
+                graphics.CompositingQuality = CompositingQuality.HighQuality;
+                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                graphics.SmoothingMode = SmoothingMode.HighQuality;
+                graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+
+                using (ImageAttributes wrapMode = new ImageAttributes())
+                {
+                    wrapMode.SetWrapMode(WrapMode.TileFlipXY);
+                    graphics.DrawImage(initalBitmap, outputContainerRect, 0, 0, initalBitmap.Width, initalBitmap.Height, GraphicsUnit.Pixel, wrapMode);
+                }
+            }
+            pictureBox1.Invoke((MethodInvoker)delegate { pictureBox1.Image = outputBitmap; });
         }
 
         private void SearchForCH8Roms()
