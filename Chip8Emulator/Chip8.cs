@@ -130,7 +130,7 @@ namespace Chip8Emulator
         {
             running = true;
             int beat = 0;
-            double timerCounter = 0;
+            double timerCounter = (DateTime.Now - DateTime.MinValue).TotalMilliseconds;
             while (running)
             {
                 uint opcode = ((uint)memory.@byte[PC] << 8) | memory.@byte[PC + 1];
@@ -146,7 +146,7 @@ namespace Chip8Emulator
                     while (!step) { }
                     while (p == PC)
                     {
-                        CPUCycle(); CPUCycle();
+                        CPUCycle();
                     }
                     step = false;
                 }
