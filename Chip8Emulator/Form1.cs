@@ -123,6 +123,10 @@ namespace Chip8Emulator
         private void Execute(string romPath)
         {
             chip8 = new Chip8();
+            chip8.ShiftQuirk = checkBox3.Checked;
+            chip8.LogicQuirk = checkBox5.Checked;
+            chip8.JumpQuirk = checkBox4.Checked;
+            chip8.LoadStoreQuirk = checkBox6.Checked;
             chip8.DebugMode = checkBox2.Checked;
             chip8.LoadROM(romPath);
             // update form display in it's own thread
@@ -212,6 +216,43 @@ namespace Chip8Emulator
             chip8.Step();
             textBox1.Invoke((MethodInvoker)(() => textBox1.Text = String.Join(Environment.NewLine, chip8.DebugMainInfo())));
             textBox2.Invoke((MethodInvoker)(() => textBox2.Text = String.Join(Environment.NewLine, chip8.DebugStackInfo())));
+        }
+
+        private void checkBox4_CheckedChanged(object sender, EventArgs e)
+        {
+            chip8.JumpQuirk = checkBox4.Checked;
+        }
+
+        private void checkBox3_CheckedChanged(object sender, EventArgs e)
+        {
+            chip8.ShiftQuirk = checkBox3.Checked;
+        }
+
+        private void checkBox5_CheckedChanged(object sender, EventArgs e)
+        {
+            chip8.LogicQuirk = checkBox5.Checked;
+        }
+
+        private void checkBox6_CheckedChanged(object sender, EventArgs e)
+        {
+            chip8.LoadStoreQuirk = checkBox6.Checked;
+        }
+
+        private void trackBar1_ValueChanged(object sender, EventArgs e)
+        {
+            int val = trackBar1.Maximum - trackBar1.Value;
+            if (chip8 != null)
+            {
+                if (val <= 20000)
+                {
+                    chip8.SimTick = val;
+                }
+                else
+                {
+                    var x = (val - 20000) * 50;
+                    chip8.SimTick = x;
+                }
+            }
         }
     }
 }

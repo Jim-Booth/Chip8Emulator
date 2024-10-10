@@ -47,8 +47,15 @@ namespace Chip8Emulator
         private bool loadStoreQuirk = true;
         public bool LoadStoreQuirk
         {
-            get { return shiftQuirk; }
-            set { shiftQuirk = value; }
+            get { return loadStoreQuirk; }
+            set { loadStoreQuirk = value; }
+        }
+
+        private int simTick = 20000;
+        public int SimTick
+        {
+            get { return simTick; }
+            set { simTick = value; }
         }
 
         bool step = true;
@@ -128,7 +135,9 @@ namespace Chip8Emulator
             info.Add("OPCODE = " + ((uint)memory.@byte[PC] << 8).ToString("X4"));
             info.Add("DELAY TIMER = " + DT);
             info.Add("SOUND TIMER = " + ST);
+            info.Add("STACK PTR = " + SP);
             info.Add("INDEX = " + I);
+            info.Add("QUIRKS = " + (int)(jumpQuirk ? 1 : 0) + "" + (int)(shiftQuirk ? 1 : 0) + "" + (int)(logicQuirk ? 1 : 0) + "" + (int)(loadStoreQuirk ? 1 : 0));
             info.Add("RUNNING = " + running);
             return info;
         }
@@ -160,6 +169,8 @@ namespace Chip8Emulator
             double timerCounter = (DateTime.Now - DateTime.MinValue).TotalMilliseconds;
             while (running)
             {
+                var watch = Stopwatch.StartNew();
+
                 uint opcode = ((uint)memory.@byte[PC] << 8) | memory.@byte[PC + 1];
                 uint p = PC;
 
@@ -195,6 +206,10 @@ namespace Chip8Emulator
                     beat = 0;
                 if (beat == 100)
                     running = false;
+
+                // Ensures a max 500Hz CPU speed
+                while (watch.ElapsedTicks < simTick) { }
+                watch.Stop();
             }
             running = false;
         }
@@ -227,9 +242,6 @@ namespace Chip8Emulator
                 while (!step) { }
             }
 
-            var watch = Stopwatch.StartNew();
-            while (watch.ElapsedMilliseconds < 2) { }
-            watch.Stop();
         }
 
         private void UpdateTimers()
@@ -261,8 +273,7 @@ namespace Chip8Emulator
 
         private void OP_00EE(uint opcode) // Returns from freq subroutine
         {
-            SP--;
-            PC = STACK[SP];
+            PC = STACK[SP--];
         }
 
         private void OP_1nnn(uint opcode) // Jumps to address NNN
@@ -274,8 +285,7 @@ namespace Chip8Emulator
         private void OP_2nnn(uint opcode) // Calls subroutine at NNN
         {
             uint address = (uint)(opcode & (uint)0x0FFF);
-            STACK[SP] = PC;
-            SP++;
+            STACK[++SP] = PC;
             PC = address;
         }
 
@@ -457,15 +467,15 @@ namespace Chip8Emulator
                 uint spriteByte = memory.@byte[I + row];
                 for (uint col = 0; col < 8; col++)
                 {
+                    uint vp = ((yPos + row) * VIDEO_WIDTH + (xPos + col)) % (VIDEO_WIDTH * VIDEO_HEIGHT);
                     if ((spriteByte & ((int)0x80 >> (int)col)) != 0)
                     {
-                        uint vp = ((yPos + row) * VIDEO_WIDTH + (xPos + col)) % (VIDEO_WIDTH * VIDEO_HEIGHT);
                         if (vp != 0 && video.@byte[vp] != 0)
                         {
                             registers.@byte[0xF] = 1;
                         }
                         video.@byte[vp] ^= 1;
-                    }
+                    }                    
                 }
             }
         }
@@ -565,7 +575,7 @@ namespace Chip8Emulator
             for (uint i = 0; i <= Vx; i++)
                 memory.@byte[I + i] = registers.@byte[i];
             if (!loadStoreQuirk)
-                I = I + Vx + 1;
+                I = I + Vx;
         }
 
         private void OP_Fx65(uint opcode) // Fills from V0 to VX (including VX) with values from memory, starting at address I. The offset from I is increased by 1 for each value read, but I itself is left unmodified
@@ -573,6 +583,8 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             for (uint i = 0; i <= Vx; i++)
                 registers.@byte[i] = memory.@byte[I + i];
+            if (!loadStoreQuirk)
+                I = I + Vx + 1;
         }
 
 
@@ -581,6 +593,7 @@ namespace Chip8Emulator
             string opHex = opcode.ToString("X4");
             if (opHex == "00E0") { OP_00E0(opcode); return; }
             if (opHex == "00EE") { OP_00EE(opcode); return; }
+            if (opHex[0] == '0') { return; }
             if (opHex[0] == '1') { OP_1nnn(opcode); return; }
             if (opHex[0] == '2') { OP_2nnn(opcode); return; }
             if (opHex[0] == '3') { OP_3xnn(opcode); return; }
@@ -613,7 +626,7 @@ namespace Chip8Emulator
             if (opHex[0] == 'F' && opHex[2] == '3' && opHex[3] == '3') { OP_Fx33(opcode); return; }
             if (opHex[0] == 'F' && opHex[2] == '5' && opHex[3] == '5') { OP_Fx55(opcode); return; }
             if (opHex[0] == 'F' && opHex[2] == '6' && opHex[3] == '5') { OP_Fx65(opcode); return; }
-            throw new Exception("Invalid Opcode");
+            //throw new Exception("Invalid Opcode");
         }
     }
 }
