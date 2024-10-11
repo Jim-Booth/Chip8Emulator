@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -11,11 +12,25 @@ namespace Chip8Emulator
 {
     public partial class Form1 : Form
     {
-        private Chip8 chip8 = null;
+        private Chip8 chip8 = new Chip8();
+
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
+        public class FIXED_BYTE_ARRAY
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 320)]
+            public byte[] @byte;
+        }
+        private FIXED_BYTE_ARRAY video;
+
+        private bool displayRendering = false;
 
         public Form1()
         {
             InitializeComponent();
+            checkBox3.Checked = chip8.ShiftQuirk;
+            checkBox5.Checked = chip8.LogicQuirk;
+            checkBox4.Checked = chip8.JumpQuirk;
+            checkBox6.Checked = chip8.LoadStoreQuirk;
             SearchForCH8Roms();
         }
 
@@ -146,7 +161,8 @@ namespace Chip8Emulator
             {
                 try
                 {
-                    RenderScreen();
+                    if(chip8.DisplayAvailable && !displayRendering)
+                        RenderScreen();
                     if (checkBox1.Checked)
                     {
                         textBox1.Invoke((MethodInvoker)(() => textBox1.Text = String.Join(Environment.NewLine, chip8.DebugMainInfo())));
@@ -155,19 +171,22 @@ namespace Chip8Emulator
                 }
                 catch { }
             }
-            comboBox1.Invoke((MethodInvoker)(() => comboBox1.Enabled = true));
+            //comboBox1.Invoke((MethodInvoker)(() => comboBox1.Enabled = true));
         }
 
         private void RenderScreen()
         {
+            displayRendering = true;
             Bitmap initalBitmap = new Bitmap(64, 32);
+            video = new FIXED_BYTE_ARRAY { @byte = new byte[64 * 32] };
+            video.@byte = chip8.Video.@byte;       
             int cnt = 0;
             for (int y = 0; y < 32; y++)
             {
                 string row = String.Empty;
                 for (int x = 0; x < 64; x++)
                 {
-                    if (chip8.Video.@byte[cnt] != 0)
+                    if (video.@byte[cnt] != 0)
                         initalBitmap.SetPixel(x, y, Color.LimeGreen);
                     else
                         initalBitmap.SetPixel(x, y, Color.Black);
@@ -192,6 +211,7 @@ namespace Chip8Emulator
                 }
             }
             pictureBox1.Invoke((MethodInvoker)delegate { pictureBox1.Image = outputBitmap; });
+            displayRendering = false;
         }
 
         private void SearchForCH8Roms()
@@ -208,7 +228,7 @@ namespace Chip8Emulator
             Reset();
             if (!String.IsNullOrEmpty(comboBox1.SelectedItem.ToString()))
                 Execute(comboBox1.Text);
-            comboBox1.Enabled = false;
+            //comboBox1.Enabled = false;
         }
 
         private void button4_Click(object sender, EventArgs e)
@@ -254,5 +274,7 @@ namespace Chip8Emulator
                 }
             }
         }
+
+        private void comboBox_KeyPress(object sender, KeyPressEventArgs e) { e.KeyChar = (char)Keys.None; }
     }
 }

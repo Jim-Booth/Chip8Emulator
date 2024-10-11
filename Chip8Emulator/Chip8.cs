@@ -4,8 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using static System.Windows.Forms.AxHost;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
 
 namespace Chip8Emulator
 {
@@ -23,32 +21,38 @@ namespace Chip8Emulator
             set { debugMode = value; }
         }
 
-        private bool shiftQuirk = true;
+        private bool shiftQuirk = false;
         public bool ShiftQuirk
         {
             get { return shiftQuirk; }
             set { shiftQuirk = value; }
         }
 
-        private bool jumpQuirk = true;
+        private bool jumpQuirk = false;
         public bool JumpQuirk
         {
             get { return jumpQuirk; }
             set { jumpQuirk = value; }
         }
 
-        private bool logicQuirk = true;
+        private bool logicQuirk = false;
         public bool LogicQuirk
         {
             get { return logicQuirk; }
             set { logicQuirk = value; }
         }
 
-        private bool loadStoreQuirk = true;
+        private bool loadStoreQuirk = false;
         public bool LoadStoreQuirk
         {
             get { return loadStoreQuirk; }
             set { loadStoreQuirk = value; }
+        }
+
+        private bool displayAvailable = true;
+        public bool DisplayAvailable
+        {
+            get { return displayAvailable; }
         }
 
         private int simTick = 20000;
@@ -73,7 +77,8 @@ namespace Chip8Emulator
             set { video = value; }
         }
 
-        private Random RND;
+        private Random RND = new Random();
+
         private FIXED_BYTE_ARRAY registers = new FIXED_BYTE_ARRAY { @byte = new byte[16] };
         private FIXED_BYTE_ARRAY memory = new FIXED_BYTE_ARRAY { @byte = new byte[4095] };
         private uint I;
@@ -273,7 +278,8 @@ namespace Chip8Emulator
 
         private void OP_00EE(uint opcode) // Returns from freq subroutine
         {
-            PC = STACK[SP--];
+            SP--;
+            PC = STACK[SP];
         }
 
         private void OP_1nnn(uint opcode) // Jumps to address NNN
@@ -285,7 +291,8 @@ namespace Chip8Emulator
         private void OP_2nnn(uint opcode) // Calls subroutine at NNN
         {
             uint address = (uint)(opcode & (uint)0x0FFF);
-            STACK[++SP] = PC;
+            STACK[SP] = PC;
+            SP++;
             PC = address;
         }
 
@@ -366,11 +373,12 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             int sum = (registers.@byte[Vx] + registers.@byte[Vy]);
-            registers.@byte[Vx] = (byte)((byte)sum & 0xFF);
+            //registers.@byte[Vx] = (byte)((byte)sum & 0xFF);
             if (sum > 255)
                 registers.@byte[15] = 1;
             else
                 registers.@byte[15] = 0;
+            registers.@byte[Vx] = (byte)((byte)sum & 0xFF);
         }
 
         private void OP_8xy5(uint opcode) // VY is subtracted from VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VX >= VY and 0 if not).
@@ -378,12 +386,12 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             int sum = (registers.@byte[Vx] - registers.@byte[Vy]);
-            registers.@byte[Vx] = (byte)sum;
+            //registers.@byte[Vx] = (byte)sum;
             if (sum <= 0)
                 registers.@byte[15] = 0;
             else
                 registers.@byte[15] = 1;
-
+            registers.@byte[Vx] = (byte)sum;
         }
 
         private void OP_8xy6(uint opcode) // Stores the least significant bit of VX in VF and then shifts VX to the right by 1
@@ -392,10 +400,12 @@ namespace Chip8Emulator
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint vx = (uint)registers.@byte[Vx];
             int sum = (vx & 0x1) != 0 ? 1 : 0;
+            registers.@byte[15] = (byte)sum;
             if (!shiftQuirk)
                 registers.@byte[Vx] = registers.@byte[Vy];
-            registers.@byte[Vx] >>= 0x1;
-            registers.@byte[15] = (byte)sum;
+            else
+                registers.@byte[Vx] >>= 0x1;
+            //registers.@byte[15] = (byte)sum;
         }
 
         private void OP_8xy7(uint opcode) // Sets VX to VY minus VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VY >= VX)
@@ -404,10 +414,10 @@ namespace Chip8Emulator
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             int sum = registers.@byte[Vy] - registers.@byte[Vx];
             registers.@byte[Vx] = (byte)sum;
-            if (sum <= 0)
-                registers.@byte[15] = 0;
-            else
+            if (sum >= 0)
                 registers.@byte[15] = 1;
+            else
+                registers.@byte[15] = 0;
         }
 
         private void OP_8xyE(uint opcode) // Stores the most significant bit of VX in VF and then shifts VX to the left by 1
@@ -416,10 +426,12 @@ namespace Chip8Emulator
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint vx = (uint)registers.@byte[Vx];
             int sum = (vx & 0x80) == 0x80 ? 1 : 0;
+            registers.@byte[15] = (byte)sum;
             if (!shiftQuirk)
                 registers.@byte[Vx] = registers.@byte[Vy];
-            registers.@byte[Vx] <<= 0x1;
-            registers.@byte[15] = (byte)sum;
+            else
+                registers.@byte[Vx] <<= 0x1;
+            //registers.@byte[15] = (byte)sum;
         }
 
         private void OP_9xy0(uint opcode) // Skips the next instruction if VX does not equal VY. (Usually the next instruction is freq jump to skip freq code block)
@@ -450,8 +462,8 @@ namespace Chip8Emulator
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = (opcode & (uint)0x00FF);
-            RND = new Random();
             registers.@byte[Vx] = (byte)(RND.Next(0, 255) & b);
+            RND = new Random();
         }
 
         private void OP_Dxyn(uint opcode) // Draws freq sprite at coordinate (VX, VY) that has freq width of 8 pixels and freq height of N pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I value does not change after the execution of this instruction. As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen
@@ -467,7 +479,9 @@ namespace Chip8Emulator
                 uint spriteByte = memory.@byte[I + row];
                 for (uint col = 0; col < 8; col++)
                 {
-                    uint vp = ((yPos + row) * VIDEO_WIDTH + (xPos + col)) % (VIDEO_WIDTH * VIDEO_HEIGHT);
+                    //uint vp = ((yPos + row) * VIDEO_WIDTH + (xPos + col)) % (VIDEO_WIDTH * VIDEO_HEIGHT);
+                    uint vp = (yPos + row) % VIDEO_HEIGHT * VIDEO_WIDTH + (xPos + col) % VIDEO_WIDTH;
+
                     if ((spriteByte & ((int)0x80 >> (int)col)) != 0)
                     {
                         if (vp != 0 && video.@byte[vp] != 0)
@@ -548,7 +562,10 @@ namespace Chip8Emulator
         private void OP_Fx1E(uint opcode) // Adds VX to I. VF is not affected
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            I += registers.@byte[Vx];
+            if((I += registers.@byte[Vx]) > (uint)0x0FFF)
+                registers.@byte[0xF] = 1;
+            else
+                registers.@byte[0xF] = 0;
         }
 
         private void OP_Fx29(uint opcode) // Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by freq 4x5 font
