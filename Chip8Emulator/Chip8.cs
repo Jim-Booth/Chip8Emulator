@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
@@ -300,7 +301,7 @@ namespace Chip8Emulator
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
-            if ((uint)registers.@byte[Vx] == b)
+            if (registers.@byte[Vx] == b)
                 PC += 2;
         }
 
@@ -373,12 +374,11 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             int sum = (registers.@byte[Vx] + registers.@byte[Vy]);
-            //registers.@byte[Vx] = (byte)((byte)sum & 0xFF);
+            registers.@byte[Vx] = (byte)((byte)sum & 0xFF);
             if (sum > 255)
                 registers.@byte[15] = 1;
             else
                 registers.@byte[15] = 0;
-            registers.@byte[Vx] = (byte)((byte)sum & 0xFF);
         }
 
         private void OP_8xy5(uint opcode) // VY is subtracted from VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VX >= VY and 0 if not).
@@ -386,12 +386,12 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             int sum = (registers.@byte[Vx] - registers.@byte[Vy]);
-            //registers.@byte[Vx] = (byte)sum;
-            if (sum <= 0)
+            registers.@byte[Vx] = (byte)sum;
+            if (sum < 0)
                 registers.@byte[15] = 0;
             else
                 registers.@byte[15] = 1;
-            registers.@byte[Vx] = (byte)sum;
+            //registers.@byte[Vx] = (byte)sum;
         }
 
         private void OP_8xy6(uint opcode) // Stores the least significant bit of VX in VF and then shifts VX to the right by 1
@@ -400,12 +400,11 @@ namespace Chip8Emulator
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint vx = (uint)registers.@byte[Vx];
             int sum = (vx & 0x1) != 0 ? 1 : 0;
-            registers.@byte[15] = (byte)sum;
             if (!shiftQuirk)
                 registers.@byte[Vx] = registers.@byte[Vy];
             else
                 registers.@byte[Vx] >>= 0x1;
-            //registers.@byte[15] = (byte)sum;
+            registers.@byte[15] = (byte)sum;
         }
 
         private void OP_8xy7(uint opcode) // Sets VX to VY minus VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VY >= VX)
@@ -414,10 +413,11 @@ namespace Chip8Emulator
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             int sum = registers.@byte[Vy] - registers.@byte[Vx];
             registers.@byte[Vx] = (byte)sum;
-            if (sum >= 0)
-                registers.@byte[15] = 1;
-            else
+            if (sum < 0)
                 registers.@byte[15] = 0;
+            else
+                registers.@byte[15] = 1;
+            //registers.@byte[Vx] = (byte)sum;
         }
 
         private void OP_8xyE(uint opcode) // Stores the most significant bit of VX in VF and then shifts VX to the left by 1
@@ -426,12 +426,11 @@ namespace Chip8Emulator
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint vx = (uint)registers.@byte[Vx];
             int sum = (vx & 0x80) == 0x80 ? 1 : 0;
-            registers.@byte[15] = (byte)sum;
             if (!shiftQuirk)
                 registers.@byte[Vx] = registers.@byte[Vy];
             else
                 registers.@byte[Vx] <<= 0x1;
-            //registers.@byte[15] = (byte)sum;
+            registers.@byte[15] = (byte)sum;
         }
 
         private void OP_9xy0(uint opcode) // Skips the next instruction if VX does not equal VY. (Usually the next instruction is freq jump to skip freq code block)
@@ -479,9 +478,7 @@ namespace Chip8Emulator
                 uint spriteByte = memory.@byte[I + row];
                 for (uint col = 0; col < 8; col++)
                 {
-                    //uint vp = ((yPos + row) * VIDEO_WIDTH + (xPos + col)) % (VIDEO_WIDTH * VIDEO_HEIGHT);
                     uint vp = (yPos + row) % VIDEO_HEIGHT * VIDEO_WIDTH + (xPos + col) % VIDEO_WIDTH;
-
                     if ((spriteByte & ((int)0x80 >> (int)col)) != 0)
                     {
                         if (vp != 0 && video.@byte[vp] != 0)
@@ -521,12 +518,14 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             bool hit = false;
             for (uint i = 0; i < 15; i++)
+            {
                 if (keypad.@byte[i] != 0)
                 {
                     registers.@byte[Vx] = (byte)i;
                     hit = true;
                     break;
                 }
+            }
             if (!hit)
                 PC -= 2;
         }
@@ -573,17 +572,23 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint digit = registers.@byte[Vx];
             I = digit * 5;
+            //I = (ushort)(FONTSET_START_ADDRESS + (5 * digit));
         }
 
         private void OP_Fx33(uint opcode) // Stores the binary-coded decimal representation of VX, with the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint value = registers.@byte[Vx];
+
             memory.@byte[I + 2] = (byte)(value % 10);
             value /= 10;
             memory.@byte[I + 1] = (byte)(value % 10);
             value /= 10;
             memory.@byte[I] = (byte)(value % 10);
+
+            //memory.@byte[I] = (byte)(value / 100);
+            //memory.@byte[I + 1] = (byte)((value / 10) % 10);
+            //memory.@byte[I + 2] = (byte)((value % 100) % 10);
         }
 
         private void OP_Fx55(uint opcode) // Stores from V0 to VX (including VX) in memory, starting at address I. The offset from I is increased by 1 for each value written, but I itself is left unmodified.

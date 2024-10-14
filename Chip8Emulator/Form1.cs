@@ -14,6 +14,9 @@ namespace Chip8Emulator
     {
         private Chip8 chip8 = new Chip8();
 
+        Thread chip8_thread;
+        Thread displayThread;
+
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public class FIXED_BYTE_ARRAY
         {
@@ -118,6 +121,7 @@ namespace Chip8Emulator
         {
             if (openFileDialog.ShowDialog() == DialogResult.OK)
             {
+                comboBox1.SelectedIndex = -1;
                 Reset();
                 Execute(openFileDialog.FileName);
             }
@@ -131,12 +135,39 @@ namespace Chip8Emulator
 
         private void Reset()
         {
-            if (chip8 != null) chip8.Stop();
-            comboBox1.Enabled = true;
+            //if (displayThread != null)
+            //{
+            //    displayThread.Abort();
+            //    while (displayThread.IsAlive)
+            //    {
+            //        displayThread.Abort();
+            //    }
+            //}
+
+            if (chip8_thread != null)
+            {
+                chip8.Stop();
+                while (chip8.Running)
+                {
+                    chip8.Stop();
+                    chip8_thread.Abort();
+                }
+                while (chip8_thread.IsAlive)
+                {
+                    chip8_thread.Abort();
+                }
+            }
+            //if(chip8_thread != null)
+            //    chip8_thread.Abort();
+            panel1.BackColor = Color.Red;
+            trackBar1.Value = 20000;
         }
 
         private void Execute(string romPath)
         {
+            if(displayThread != null)
+                { displayThread = null; }
+            panel1.BackColor = Color.Black;
             chip8 = new Chip8();
             chip8.ShiftQuirk = checkBox3.Checked;
             chip8.LogicQuirk = checkBox5.Checked;
@@ -145,17 +176,18 @@ namespace Chip8Emulator
             chip8.DebugMode = checkBox2.Checked;
             chip8.LoadROM(romPath);
             // update form display in it's own thread
-            var displayThread = new Thread(() => DisplayLoop());
+            displayThread = new Thread(() => DisplayLoop());
             displayThread.IsBackground = true;
             displayThread.Start();
             // start Chip8 in it's own thread
-            var chip8_thread = new Thread(() => chip8.Start());
+            chip8_thread = new Thread(() => chip8.Start());
             chip8_thread.IsBackground = true;
             chip8_thread.Start();
         }
 
         private void DisplayLoop()
         {
+            panel1.BackColor = Color.Black;
             while (!chip8.Running) { }
             while (chip8.Running)
             {
@@ -171,7 +203,7 @@ namespace Chip8Emulator
                 }
                 catch { }
             }
-            //comboBox1.Invoke((MethodInvoker)(() => comboBox1.Enabled = true));
+            panel1.BackColor = Color.Red;
         }
 
         private void RenderScreen()
@@ -226,9 +258,9 @@ namespace Chip8Emulator
         private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
             Reset();
-            if (!String.IsNullOrEmpty(comboBox1.SelectedItem.ToString()))
-                Execute(comboBox1.Text);
-            //comboBox1.Enabled = false;
+            if (comboBox1.SelectedIndex > -1)
+                if (!String.IsNullOrEmpty(comboBox1.SelectedItem.ToString()))
+                    Execute(comboBox1.Text);
         }
 
         private void button4_Click(object sender, EventArgs e)
@@ -276,5 +308,13 @@ namespace Chip8Emulator
         }
 
         private void comboBox_KeyPress(object sender, KeyPressEventArgs e) { e.KeyChar = (char)Keys.None; }
+
+        private void button5_Click(object sender, EventArgs e)
+        {
+            Reset();
+            if (comboBox1.Text.Length != 0)
+                comboBox1_SelectedIndexChanged(this, e);
+
+        }
     }
 }
