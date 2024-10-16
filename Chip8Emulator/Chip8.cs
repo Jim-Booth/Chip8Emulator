@@ -14,6 +14,7 @@ namespace Chip8Emulator
         public bool Running
         {
             get { return running; }
+            set { running = value; }
         }
         private bool debugMode = false;
         public bool DebugMode
@@ -78,7 +79,7 @@ namespace Chip8Emulator
             set { video = value; }
         }
 
-        private Random RND = new Random();
+        private Random RND = new Random(DateTime.Now.Millisecond);
 
         private FIXED_BYTE_ARRAY registers = new FIXED_BYTE_ARRAY { @byte = new byte[16] };
         private FIXED_BYTE_ARRAY memory = new FIXED_BYTE_ARRAY { @byte = new byte[4095] };
@@ -373,25 +374,22 @@ namespace Chip8Emulator
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            int sum = (registers.@byte[Vx] + registers.@byte[Vy]);
-            registers.@byte[Vx] = (byte)((byte)sum & 0xFF);
-            if (sum > 255)
+            if ((registers.@byte[Vx] + registers.@byte[Vy]) > 0xFF)
                 registers.@byte[15] = 1;
             else
                 registers.@byte[15] = 0;
+            registers.@byte[Vx] += registers.@byte[Vy];
         }
 
         private void OP_8xy5(uint opcode) // VY is subtracted from VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VX >= VY and 0 if not).
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            int sum = (registers.@byte[Vx] - registers.@byte[Vy]);
-            registers.@byte[Vx] = (byte)sum;
-            if (sum < 0)
-                registers.@byte[15] = 0;
-            else
+            if (registers.@byte[Vx] >= registers.@byte[Vy])
                 registers.@byte[15] = 1;
-            //registers.@byte[Vx] = (byte)sum;
+            else
+                registers.@byte[15] = 0;
+            registers.@byte[Vx] -= registers.@byte[Vy];
         }
 
         private void OP_8xy6(uint opcode) // Stores the least significant bit of VX in VF and then shifts VX to the right by 1
@@ -399,25 +397,22 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint vx = (uint)registers.@byte[Vx];
-            int sum = (vx & 0x1) != 0 ? 1 : 0;
             if (!shiftQuirk)
                 registers.@byte[Vx] = registers.@byte[Vy];
             else
-                registers.@byte[Vx] >>= 0x1;
-            registers.@byte[15] = (byte)sum;
+                registers.@byte[Vx] = (byte)(registers.@byte[Vx] / 2);
+            registers.@byte[15] = (byte)(vx & 0x01);
         }
 
         private void OP_8xy7(uint opcode) // Sets VX to VY minus VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VY >= VX)
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            int sum = registers.@byte[Vy] - registers.@byte[Vx];
-            registers.@byte[Vx] = (byte)sum;
-            if (sum < 0)
-                registers.@byte[15] = 0;
-            else
+            if (registers.@byte[Vy] >= registers.@byte[Vx])
                 registers.@byte[15] = 1;
-            //registers.@byte[Vx] = (byte)sum;
+            else
+                registers.@byte[15] = 0;
+            registers.@byte[Vx] = (byte)(registers.@byte[Vy] - registers.@byte[Vx]);
         }
 
         private void OP_8xyE(uint opcode) // Stores the most significant bit of VX in VF and then shifts VX to the left by 1
@@ -425,12 +420,11 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             uint vx = (uint)registers.@byte[Vx];
-            int sum = (vx & 0x80) == 0x80 ? 1 : 0;
             if (!shiftQuirk)
                 registers.@byte[Vx] = registers.@byte[Vy];
             else
-                registers.@byte[Vx] <<= 0x1;
-            registers.@byte[15] = (byte)sum;
+                registers.@byte[Vx] = (byte)(registers.@byte[Vx] * 2);
+            registers.@byte[15] = (byte)(vx & 0x80);
         }
 
         private void OP_9xy0(uint opcode) // Skips the next instruction if VX does not equal VY. (Usually the next instruction is freq jump to skip freq code block)
@@ -462,7 +456,7 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = (opcode & (uint)0x00FF);
             registers.@byte[Vx] = (byte)(RND.Next(0, 255) & b);
-            RND = new Random();
+            RND = new Random(DateTime.Now.Millisecond);
         }
 
         private void OP_Dxyn(uint opcode) // Draws freq sprite at coordinate (VX, VY) that has freq width of 8 pixels and freq height of N pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I value does not change after the execution of this instruction. As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen
@@ -561,34 +555,26 @@ namespace Chip8Emulator
         private void OP_Fx1E(uint opcode) // Adds VX to I. VF is not affected
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            if((I += registers.@byte[Vx]) > (uint)0x0FFF)
-                registers.@byte[0xF] = 1;
-            else
-                registers.@byte[0xF] = 0;
+            I += registers.@byte[Vx];
         }
 
         private void OP_Fx29(uint opcode) // Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by freq 4x5 font
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint digit = registers.@byte[Vx];
-            I = digit * 5;
-            //I = (ushort)(FONTSET_START_ADDRESS + (5 * digit));
+            I = digit * 0x05;
         }
 
         private void OP_Fx33(uint opcode) // Stores the binary-coded decimal representation of VX, with the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint value = registers.@byte[Vx];
-
-            memory.@byte[I + 2] = (byte)(value % 10);
-            value /= 10;
-            memory.@byte[I + 1] = (byte)(value % 10);
-            value /= 10;
-            memory.@byte[I] = (byte)(value % 10);
-
-            //memory.@byte[I] = (byte)(value / 100);
-            //memory.@byte[I + 1] = (byte)((value / 10) % 10);
-            //memory.@byte[I + 2] = (byte)((value % 100) % 10);
+            var h = value / 100;
+            var t = (value - h * 100) / 10;
+            var u = value - h * 100 - t * 10;
+            memory.@byte[I] = (byte)h;
+            memory.@byte[I + 1] = (byte)t;
+            memory.@byte[I + 2] = (byte)u;
         }
 
         private void OP_Fx55(uint opcode) // Stores from V0 to VX (including VX) in memory, starting at address I. The offset from I is increased by 1 for each value written, but I itself is left unmodified.
@@ -597,7 +583,7 @@ namespace Chip8Emulator
             for (uint i = 0; i <= Vx; i++)
                 memory.@byte[I + i] = registers.@byte[i];
             if (!loadStoreQuirk)
-                I = I + Vx;
+                I = I + Vx + 1;
         }
 
         private void OP_Fx65(uint opcode) // Fills from V0 to VX (including VX) with values from memory, starting at address I. The offset from I is increased by 1 for each value read, but I itself is left unmodified

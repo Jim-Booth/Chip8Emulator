@@ -5,14 +5,13 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Chip8Emulator
 {
     public partial class Form1 : Form
     {
-        private Chip8 chip8 = new Chip8();
+        private Chip8 chip8;
 
         Thread chip8_thread;
         Thread displayThread;
@@ -30,10 +29,6 @@ namespace Chip8Emulator
         public Form1()
         {
             InitializeComponent();
-            checkBox3.Checked = chip8.ShiftQuirk;
-            checkBox5.Checked = chip8.LogicQuirk;
-            checkBox4.Checked = chip8.JumpQuirk;
-            checkBox6.Checked = chip8.LoadStoreQuirk;
             SearchForCH8Roms();
         }
 
@@ -135,17 +130,9 @@ namespace Chip8Emulator
 
         private void Reset()
         {
-            //if (displayThread != null)
-            //{
-            //    displayThread.Abort();
-            //    while (displayThread.IsAlive)
-            //    {
-            //        displayThread.Abort();
-            //    }
-            //}
-
             if (chip8_thread != null)
             {
+                chip8.Running = false;
                 chip8.Stop();
                 while (chip8.Running)
                 {
@@ -157,8 +144,6 @@ namespace Chip8Emulator
                     chip8_thread.Abort();
                 }
             }
-            //if(chip8_thread != null)
-            //    chip8_thread.Abort();
             panel1.BackColor = Color.Red;
             trackBar1.Value = 20000;
         }
@@ -311,7 +296,6 @@ namespace Chip8Emulator
 
         private void button5_Click(object sender, EventArgs e)
         {
-            Reset();
             if (comboBox1.Text.Length != 0)
                 comboBox1_SelectedIndexChanged(this, e);
 
