@@ -201,9 +201,9 @@
             this.checkBox5.AutoSize = true;
             this.checkBox5.Location = new System.Drawing.Point(841, 311);
             this.checkBox5.Name = "checkBox5";
-            this.checkBox5.Size = new System.Drawing.Size(80, 17);
+            this.checkBox5.Size = new System.Drawing.Size(67, 17);
             this.checkBox5.TabIndex = 18;
-            this.checkBox5.Text = "Logic Quirk";
+            this.checkBox5.Text = "VF Quirk";
             this.checkBox5.UseVisualStyleBackColor = true;
             this.checkBox5.CheckedChanged += new System.EventHandler(this.checkBox5_CheckedChanged);
             // 
@@ -212,9 +212,9 @@
             this.checkBox6.AutoSize = true;
             this.checkBox6.Location = new System.Drawing.Point(930, 311);
             this.checkBox6.Name = "checkBox6";
-            this.checkBox6.Size = new System.Drawing.Size(106, 17);
+            this.checkBox6.Size = new System.Drawing.Size(91, 17);
             this.checkBox6.TabIndex = 19;
-            this.checkBox6.Text = "Load Store Quirk";
+            this.checkBox6.Text = "Memory Quirk";
             this.checkBox6.UseVisualStyleBackColor = true;
             this.checkBox6.CheckedChanged += new System.EventHandler(this.checkBox6_CheckedChanged);
             // 

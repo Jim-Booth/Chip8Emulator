@@ -24,6 +24,8 @@ namespace Chip8Emulator
         }
         private FIXED_BYTE_ARRAY video;
 
+        private string currentLoadedROM = @"Test.ROM";
+
         private bool displayRendering = false;
 
         public Form1()
@@ -91,7 +93,8 @@ namespace Chip8Emulator
         private void button1_Click(object sender, EventArgs e)
         {
             Reset();
-            Execute(@"Test.ROM");
+            currentLoadedROM = @"Test.ROM";
+            Execute(currentLoadedROM);
             if (!String.IsNullOrEmpty(comboBox1.Text))
                 comboBox1.Text = String.Empty;
             button2.Text = "Pause";
@@ -118,14 +121,15 @@ namespace Chip8Emulator
             {
                 comboBox1.SelectedIndex = -1;
                 Reset();
-                Execute(openFileDialog.FileName);
+                currentLoadedROM = openFileDialog.FileName;
+                Execute(currentLoadedROM);
             }
         }
 
         private void Form1_Shown(object sender, EventArgs e)
         {
             Reset();
-            Execute(@"Test.ROM");
+            Execute(currentLoadedROM);
         }
 
         private void Reset()
@@ -155,9 +159,9 @@ namespace Chip8Emulator
             panel1.BackColor = Color.Black;
             chip8 = new Chip8();
             chip8.ShiftQuirk = checkBox3.Checked;
-            chip8.LogicQuirk = checkBox5.Checked;
+            chip8.VFReset = checkBox5.Checked;
             chip8.JumpQuirk = checkBox4.Checked;
-            chip8.LoadStoreQuirk = checkBox6.Checked;
+            chip8.MemoryQuirk = checkBox6.Checked;
             chip8.DebugMode = checkBox2.Checked;
             chip8.LoadROM(romPath);
             // update form display in it's own thread
@@ -267,12 +271,12 @@ namespace Chip8Emulator
 
         private void checkBox5_CheckedChanged(object sender, EventArgs e)
         {
-            chip8.LogicQuirk = checkBox5.Checked;
+            chip8.VFReset = checkBox5.Checked;
         }
 
         private void checkBox6_CheckedChanged(object sender, EventArgs e)
         {
-            chip8.LoadStoreQuirk = checkBox6.Checked;
+            chip8.MemoryQuirk = checkBox6.Checked;
         }
 
         private void trackBar1_ValueChanged(object sender, EventArgs e)
@@ -298,7 +302,8 @@ namespace Chip8Emulator
         {
             if (comboBox1.Text.Length != 0)
                 comboBox1_SelectedIndexChanged(this, e);
-
+            else
+                Form1_Shown(sender, e);
         }
     }
 }

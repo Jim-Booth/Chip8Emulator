@@ -37,18 +37,18 @@ namespace Chip8Emulator
             set { jumpQuirk = value; }
         }
 
-        private bool logicQuirk = false;
-        public bool LogicQuirk
+        private bool vFReset = false;
+        public bool VFReset
         {
-            get { return logicQuirk; }
-            set { logicQuirk = value; }
+            get { return vFReset; }
+            set { vFReset = value; }
         }
 
-        private bool loadStoreQuirk = false;
-        public bool LoadStoreQuirk
+        private bool memoryQuirk = false;
+        public bool MemoryQuirk
         {
-            get { return loadStoreQuirk; }
-            set { loadStoreQuirk = value; }
+            get { return memoryQuirk; }
+            set { memoryQuirk = value; }
         }
 
         private bool displayAvailable = true;
@@ -144,7 +144,7 @@ namespace Chip8Emulator
             info.Add("SOUND TIMER = " + ST);
             info.Add("STACK PTR = " + SP);
             info.Add("INDEX = " + I);
-            info.Add("QUIRKS = " + (int)(jumpQuirk ? 1 : 0) + "" + (int)(shiftQuirk ? 1 : 0) + "" + (int)(logicQuirk ? 1 : 0) + "" + (int)(loadStoreQuirk ? 1 : 0));
+            info.Add("QUIRKS = " + (int)(jumpQuirk ? 1 : 0) + "" + (int)(shiftQuirk ? 1 : 0) + "" + (int)(vFReset ? 1 : 0) + "" + (int)(memoryQuirk ? 1 : 0));
             info.Add("RUNNING = " + running);
             return info;
         }
@@ -333,7 +333,7 @@ namespace Chip8Emulator
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = opcode & (uint)0x00FF;
-            registers.@byte[Vx] += (byte)b;
+            registers.@byte[Vx] = (byte)((registers.@byte[Vx] + (byte)b) & 0xFF);
         }
 
         private void OP_8xy0(uint opcode) // Sets VX to the value of VY
@@ -348,7 +348,7 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.@byte[Vx] |= registers.@byte[Vy];
-            if(logicQuirk)
+            if(vFReset)
                 registers.@byte[15] = 0;
         }
 
@@ -357,7 +357,7 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.@byte[Vx] &= registers.@byte[Vy];
-            if (logicQuirk)
+            if (vFReset)
                 registers.@byte[15] = 0;
         }
 
@@ -366,7 +366,7 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
             registers.@byte[Vx] ^= registers.@byte[Vy];
-            if (logicQuirk)
+            if (vFReset)
                 registers.@byte[15] = 0;
         }
 
@@ -374,57 +374,80 @@ namespace Chip8Emulator
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            if ((registers.@byte[Vx] + registers.@byte[Vy]) > 0xFF)
-                registers.@byte[15] = 1;
-            else
-                registers.@byte[15] = 0;
-            registers.@byte[Vx] += registers.@byte[Vy];
+
+            uint sum = (uint)(registers.@byte[Vx] + registers.@byte[Vy]);
+            registers.@byte[15] = (byte)(sum >> 0xFF);
+            registers.@byte[Vx] = (byte)(sum & 0xFF);
+
+
+            //if ((registers.@byte[Vx] + registers.@byte[Vy]) > 0xFF)
+            //    registers.@byte[15] = 1;
+            //else
+            //    registers.@byte[15] = 0;
+            //registers.@byte[Vx] += registers.@byte[Vy];
         }
 
         private void OP_8xy5(uint opcode) // VY is subtracted from VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VX >= VY and 0 if not).
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
+            uint sum = (uint)(registers.@byte[Vx] - registers.@byte[Vy]);
             if (registers.@byte[Vx] >= registers.@byte[Vy])
                 registers.@byte[15] = 1;
             else
                 registers.@byte[15] = 0;
-            registers.@byte[Vx] -= registers.@byte[Vy];
+            registers.@byte[Vx] = (byte)(sum & 0xFF);
         }
 
         private void OP_8xy6(uint opcode) // Stores the least significant bit of VX in VF and then shifts VX to the right by 1
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            uint vx = (uint)registers.@byte[Vx];
+            //uint vx = (uint)registers.@byte[Vx];
+            registers.@byte[15] = (byte)(registers.@byte[Vy] & 0b00000001);
+
             if (!shiftQuirk)
-                registers.@byte[Vx] = registers.@byte[Vy];
+                registers.@byte[Vx] = registers.@byte[Vy] = (byte)(registers.@byte[Vy] >> 1);
             else
                 registers.@byte[Vx] = (byte)(registers.@byte[Vx] / 2);
-            registers.@byte[15] = (byte)(vx & 0x01);
+            //registers.@byte[15] = (byte)(vx & 0x01);
         }
 
         private void OP_8xy7(uint opcode) // Sets VX to VY minus VX. VF is set to 0 when there's an underflow, and 1 when there is not. (i.e. VF set to 1 if VY >= VX)
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            if (registers.@byte[Vy] >= registers.@byte[Vx])
+
+            uint sum = (uint)(registers.@byte[Vy] - registers.@byte[Vx]);
+            if (registers.@byte[Vx] >= registers.@byte[Vy])
                 registers.@byte[15] = 1;
             else
                 registers.@byte[15] = 0;
-            registers.@byte[Vx] = (byte)(registers.@byte[Vy] - registers.@byte[Vx]);
+            registers.@byte[Vx] = (byte)(sum & 0xFF);
+
+
+
+            //if (registers.@byte[Vy] >= registers.@byte[Vx])
+            //    registers.@byte[15] = 1;
+            //else
+            //    registers.@byte[15] = 0;
+            //registers.@byte[Vx] = (byte)(registers.@byte[Vy] - registers.@byte[Vx]);
         }
 
         private void OP_8xyE(uint opcode) // Stores the most significant bit of VX in VF and then shifts VX to the left by 1
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint Vy = (opcode & (uint)0x00F0) >> 4;
-            uint vx = (uint)registers.@byte[Vx];
+
+            registers.@byte[15] = (byte)((byte)(registers.@byte[Vy] & 0b10000000) >> 7);
+
+
+            //uint vx = (uint)registers.@byte[Vx];
             if (!shiftQuirk)
-                registers.@byte[Vx] = registers.@byte[Vy];
+                registers.@byte[Vx] = registers.@byte[Vy] = (byte)(registers.@byte[Vy] << 1);
             else
                 registers.@byte[Vx] = (byte)(registers.@byte[Vx] * 2);
-            registers.@byte[15] = (byte)(vx & 0x80);
+            //registers.@byte[15] = (byte)(vx & 0x80);
         }
 
         private void OP_9xy0(uint opcode) // Skips the next instruction if VX does not equal VY. (Usually the next instruction is freq jump to skip freq code block)
@@ -446,16 +469,16 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint address = (uint)(opcode & (uint)0x0FFF);
             if(!jumpQuirk)
-                PC = (ushort)(registers.@byte[0] + address);
+                PC = address + registers.@byte[0];
             else
-                PC = (ushort)(registers.@byte[0] + registers.@byte[Vx]);
+                PC = address + registers.@byte[Vx];
         }
 
         private void OP_Cxnn(uint opcode) // Sets VX to the result of freq bitwise and operation on freq random number (Typically: 0 to 255) and NN
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint b = (opcode & (uint)0x00FF);
-            registers.@byte[Vx] = (byte)(RND.Next(0, 255) & b);
+            registers.@byte[Vx] = (byte)(RND.Next(0, (int)b) & b);
             RND = new Random(DateTime.Now.Millisecond);
         }
 
@@ -555,14 +578,14 @@ namespace Chip8Emulator
         private void OP_Fx1E(uint opcode) // Adds VX to I. VF is not affected
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
-            I += registers.@byte[Vx];
+            I = (I + registers.@byte[Vx]) & 0xFFFF;
         }
 
         private void OP_Fx29(uint opcode) // Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by freq 4x5 font
         {
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             uint digit = registers.@byte[Vx];
-            I = digit * 0x05;
+            I = (digit * 0x05) & 0xFFFF;
         }
 
         private void OP_Fx33(uint opcode) // Stores the binary-coded decimal representation of VX, with the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2
@@ -582,8 +605,8 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             for (uint i = 0; i <= Vx; i++)
                 memory.@byte[I + i] = registers.@byte[i];
-            if (!loadStoreQuirk)
-                I = I + Vx + 1;
+            if (memoryQuirk)
+                I = (I + Vx + 1) & 0xFFFF;
         }
 
         private void OP_Fx65(uint opcode) // Fills from V0 to VX (including VX) with values from memory, starting at address I. The offset from I is increased by 1 for each value read, but I itself is left unmodified
@@ -591,8 +614,8 @@ namespace Chip8Emulator
             uint Vx = (opcode & (uint)0x0F00) >> 8;
             for (uint i = 0; i <= Vx; i++)
                 registers.@byte[i] = memory.@byte[I + i];
-            if (!loadStoreQuirk)
-                I = I + Vx + 1;
+            if (memoryQuirk)
+                I = (I + Vx + 1) & 0xFFFF;
         }
 
 
@@ -634,7 +657,7 @@ namespace Chip8Emulator
             if (opHex[0] == 'F' && opHex[2] == '3' && opHex[3] == '3') { OP_Fx33(opcode); return; }
             if (opHex[0] == 'F' && opHex[2] == '5' && opHex[3] == '5') { OP_Fx55(opcode); return; }
             if (opHex[0] == 'F' && opHex[2] == '6' && opHex[3] == '5') { OP_Fx65(opcode); return; }
-            //throw new Exception("Invalid Opcode");
+            throw new Exception("Invalid Opcode");
         }
     }
 }
